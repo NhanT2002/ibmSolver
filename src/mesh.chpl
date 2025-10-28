@@ -5,6 +5,7 @@ use HDF5.C_HDF5;
 use List;
 use Set;
 use Sort;
+use kExactLeastSquare;
 
 // === Generic 1D reader (for real(64) or int) ===
 proc read1DDataset(type eltType, file_id: hid_t, name: string): [] eltType {
@@ -135,6 +136,7 @@ class meshData {
     var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCells_dom_] int;
     var ghostCellsNearestFluidCellsCx_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellsNearestFluidCellsCy_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
+    var ghostCellkls_ : [ghostCellDom_] owned kls?;
 
 
     proc init(X : [] real(64), Y : [] real(64), Z : [] real(64)) {
@@ -477,34 +479,14 @@ class meshData {
                 this.ghostCellsNearestFluidCellsCx_[i, k] = xCells_[dists[k][1]];
                 this.ghostCellsNearestFluidCellsCy_[i, k] = yCells_[dists[k][1]];
             }
+            this.ghostCellsNearestFluidCellsCx_[i, 3] = this.ghostCells_x_bi_[i];
+            this.ghostCellsNearestFluidCellsCy_[i, 3] = this.ghostCells_y_bi_[i];
+            this.ghostCellkls_[i] = new owned kls(this.ghostCellsNearestFluidCellsCx_[i, 0..],
+                                                  this.ghostCellsNearestFluidCellsCy_[i, 0..],
+                                                  this.ghostCells_x_mirror_[i],
+                                                  this.ghostCells_y_mirror_[i]);
+            this.ghostCellkls_[i]!.computeCoefficients();
         }
-        for i in 0..<ghostCellDom_.size {
-            const ghostCell = ghostCellIndices_[i];
-            writeln("Ghost cell ", ghostCell,
-                    ", nearest fluid cells: ",
-                    ghostCellsNearestFluidCells_[i,0], " (",
-                    ghostCellsNearestFluidCellsCx_[i,0], ", ",
-                    ghostCellsNearestFluidCellsCy_[i,0], "), ",
-                    ghostCellsNearestFluidCells_[i,1], " (",
-                    ghostCellsNearestFluidCellsCx_[i,1], ", ",
-                    ghostCellsNearestFluidCellsCy_[i,1], "), ",
-                    ghostCellsNearestFluidCells_[i,2], " (",
-                    ghostCellsNearestFluidCellsCx_[i,2], ", ",
-                    ghostCellsNearestFluidCellsCy_[i,2], ")"
-            );
-        }
-        // writeln("ghostCell, xCells, yCells, nx_bi, ny_bi, x_mirror, y_mirror, x_bi, y_bi:");
-        // for i in 0..<ghostCellDom_.size {
-        //     writeln(ghostCellIndices_[i], ", ",
-        //             xCells_[ghostCellIndices_[i]], ", ",
-        //             yCells_[ghostCellIndices_[i]], ", ",
-        //             ghostCells_nx_bi_[i], ", ",
-        //             ghostCells_ny_bi_[i], ", ",
-        //             ghostCells_x_mirror_[i], ", ",
-        //             ghostCells_y_mirror_[i], ", ",
-        //             ghostCells_x_bi_[i], ", ",
-        //             ghostCells_y_bi_[i]);
-        // }
         
     }
 
