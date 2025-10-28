@@ -1,0 +1,16 @@
+MESH_FILENAME = pre/cartesian_mesh_coarse_coarse.cgns
+GEOMETRY_FILENAME = pre/naca0012_geometry.cgns
+OUTPUT_FILENAME = output/output.cgns
+X_REF = 0.25
+Y_REF = 0.0
+MACH = 0.5
+ALPHA = 0.0
+GAMMA = 1.4
+K2 = 0.5
+K4 = 0.015625
+CFL = 3.6
+IT_MAX = 1
+Mesh dimensions: niNode = 25, njNode = 25
+ghostCellIndices_ = 
+Test mapping: i=16 j=12 idxWithGhost=352 idx=254 xCellWithGhost=3.0 xCell=3.0
+Runtime: 0.010966 seconds
