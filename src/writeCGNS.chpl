@@ -66,7 +66,13 @@ class cgnsFlowWriter_c {
 
         solIDcc = cgnsFile_.addCellCenteredSolution(glbBaseId, zoneId, "FLOW_SOLUTION_CC");
 
+        var idCells : [meshData_.cell_dom_] int;
+        forall i in meshData_.cell_dom_ {
+            idCells[i] = i;
+        }
+
         var fields = new map(string, [meshData_.cell_dom_] real(64));
+        fields["idCells"] = idCells;
         fields["phiCells"] = meshData_.phiCells_;
         fields["cellTypes"] = meshData_.cellTypes_;
         fields["cellVolumes"] = meshData_.cellVolumes_;
@@ -77,6 +83,7 @@ class cgnsFlowWriter_c {
 
 
         cgnsFile_.close();
+        writeln("CGNS file written to ", cgnsFileName_);
     }
 }
 

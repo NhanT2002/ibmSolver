@@ -112,6 +112,8 @@ class meshData {
     var phiCells_ : [cell_dom_] real(64);
     var cellTypes_ : [cell_dom_] int; // -1: solid, 1: fluid, 0: ghost
     var cellVolumes_ : [cell_dom_] real(64);
+    var avgFaceAreaI_ : [cell_dom_] real(64);
+    var avgFaceAreaJ_ : [cell_dom_] real(64);
 
     var face_dom_ : domain(1) = {1..0};
     var IfaceAreas_ : [face_dom_] real(64);
@@ -120,6 +122,8 @@ class meshData {
     var JfaceAreas_ : [face_dom_] real(64);
     var JfacesCx_ : [face_dom_] real(64);
     var JfacesCy_ : [face_dom_] real(64);
+    var IfacesIJ_ : [face_dom_] (int, int);
+    var JfacesIJ_ : [face_dom_] (int, int);
 
     var ghostCellDom_ : domain(1) = {1..0};
     var ghostCellIndices_ : [ghostCellDom_] int;
@@ -134,6 +138,7 @@ class meshData {
     var ghostCellsNearestFluidCells_dom_ : domain(2) = {1..0, 1..0};
     var ghostCellsNearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
     var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCells_dom_] int;
+    var ghostCellsNearestFluidCellsIJ_ : [ghostCellsNearestFluidCells_dom_] (int, int);
     var ghostCellsNearestFluidCellsCx_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellsNearestFluidCellsCy_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellkls_ : [ghostCellDom_] owned kls?;
@@ -161,6 +166,19 @@ class meshData {
     }
 
     proc computeMetrics() {
+
+        forall j in 0..<this.njCell_ {
+            for i in 0..<this.niNode_ {
+                var faceIdx = i + j*(this.niNode_);
+                this.IfacesIJ_[faceIdx] = (i, j);
+            }
+        }
+        forall j in 0..<this.njNode_ {
+            for i in 0..<this.niCell_ {
+                var faceIdx = i + j * (this.niCell_);
+                this.JfacesIJ_[faceIdx] = (i, j);
+            }
+        }
 
         forall j in 0..<njNode_ {
             for i in 0..<niNode_ {
@@ -231,6 +249,25 @@ class meshData {
                 var x4 = this.X_[j+1, i];
                 var y4 = this.Y_[j+1, i];
                 this.cellVolumes_[idx] = 0.5 * ((x1-x3)*(y2-y4) + (x4-x2)*(y1-y3));
+            }
+        }
+
+        // Compute average face areas for each cell
+        forall j in 0..<njCell_ {
+            for i in 0..<niCell_ {
+                var idx = iiCell(i, j);
+                var areaI1 = this.IfaceAreas_[i + j*(this.niNode_)];
+                var areaI2 = this.IfaceAreas_[i + 1 + j*(this.niNode_)];
+                this.avgFaceAreaI_[idx] = 0.5 * (areaI1 + areaI2);
+            }
+        }
+
+        forall j in 0..<njCell_ {
+            for i in 0..<niCell_ {
+                var idx = iiCell(i, j);
+                var areaJ1 = this.JfaceAreas_[i + j * (this.niCell_)];
+                var areaJ2 = this.JfaceAreas_[i + (j + 1) * (this.niCell_)];
+                this.avgFaceAreaJ_[idx] = 0.5 * (areaJ1 + areaJ2);
             }
         }
     }
@@ -476,6 +513,7 @@ class meshData {
             sort(dists);
             for k in 0..<3 {
                 this.ghostCellsNearestFluidCells_[i, k] = dists[k][1];
+                this.ghostCellsNearestFluidCellsIJ_[i, k] = (dists[k][1] % niCell_, dists[k][1] / niCell_);
                 this.ghostCellsNearestFluidCellsCx_[i, k] = xCells_[dists[k][1]];
                 this.ghostCellsNearestFluidCellsCy_[i, k] = yCells_[dists[k][1]];
             }

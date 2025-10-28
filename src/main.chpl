@@ -21,9 +21,12 @@ proc main() {
 
     var FVM = new spatialDiscretization(mesh, inputs);
     FVM.initializeFlowField();
+    FVM.updateGhostCells();
+    FVM.compute_convective_fluxes();
+    FVM.compute_lambdas();
 
-    // var writer = new cgnsFlowWriter_c(inputs.OUTPUT_FILENAME_);
-    // writer.writeToCGNS(mesh);
+    var writer = new cgnsFlowWriter_c(inputs.OUTPUT_FILENAME_);
+    writer.writeToCGNS(mesh);
 
     time.stop();
     writeln("Runtime: ", time.elapsed(), " seconds");
