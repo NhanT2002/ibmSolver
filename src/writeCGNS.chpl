@@ -124,8 +124,8 @@ class cgnsFlowWriter_c {
         }
 
 
-        cgnsFile_.close();
-        writeln("CGNS file written to ", cgnsFileName_);
+        // cgnsFile_.close();
+        // writeln("CGNS file written to ", cgnsFileName_);
     }
 
     proc writeWallToCGNS(meshData_ : meshData, dom: domain(1), fieldMap: map(string, [dom] real(64))) {
@@ -135,7 +135,7 @@ class cgnsFlowWriter_c {
         const physDim: c_int = 2;      // 2D space (x, y)
         const wallBaseId = cgnsFile_.createBase(wallBaseName, cellDim, physDim);
 
-        const zoneName : string = "Zone";
+        const zoneName : string = "ZoneWall";
         var size : [0..2] cgsize_t;
         size[0] = meshData_.ghostCellDom_.size;
         size[1] = meshData_.ghostCellDom_.size-1;
@@ -145,16 +145,48 @@ class cgnsFlowWriter_c {
 
         cgnsFile_.writeGridCoordinates(wallBaseId, zoneId, meshData_.ghostCells_x_bi_, meshData_.ghostCells_y_bi_, meshData_.ghostCells_z_bi_);
 
-        solIDcc = cgnsFile_.addCellCenteredSolution(wallBaseId, zoneId, "FLOW_SOLUTION_CC");
+        solIDcc = cgnsFile_.addNodeCenteredSolution(wallBaseId, zoneId, "WALL_FLOW_SOLUTION_NC");
 
         for name in fieldMap.keys() {
             var values = try! fieldMap[name];
             cgnsFile_.addFieldSolution(wallBaseId, zoneId, solIDcc, name, values);
         }
 
-
-        cgnsFile_.close();
         writeln("CGNS file written to ", cgnsFileName_);
+    }
+
+    proc writeConvergenceHistory(time: list(real(64)),
+                                 iterations: list(int),
+                                 res0: list(real(64)),
+                                 res1: list(real(64)),
+                                 res2: list(real(64)),
+                                 res3: list(real(64)),
+                                 cls: list(real(64)),
+                                 cds: list(real(64)),
+                                 cms: list(real(64))) {
+        const nMetrics = 9;
+        const maxIter = iterations.size;
+
+        var iterationsArray: [0..<maxIter] int;
+        forall i in 0..<maxIter {
+            iterationsArray[i] = iterations[i];
+        }
+
+        var convData: [0..<nMetrics, 0..<maxIter] real;
+        convData[0, ..] = time;
+        convData[1, ..] = res0;
+        convData[2, ..] = res1;
+        convData[3, ..] = res2;
+        convData[4, ..] = res3;
+        convData[5, ..] = cls;
+        convData[6, ..] = cds;
+        convData[7, ..] = cms;
+
+        var names = ["Time", "Res0", "Res1", "Res2", "Res3", "Cl", "Cd", "Cm"];
+
+        cgnsFile_.writeGlobalConvergenceHistory("ConvergenceHistory", iterationsArray, names, convData);
+
+
     }
 }
 

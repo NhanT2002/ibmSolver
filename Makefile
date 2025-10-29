@@ -42,7 +42,7 @@ ALL_LIBS := $(MKL_LIB) $(HDF5_LIB) $(CGNS_LIB) $(METIS_LIB) $(PETSC_LIB) $(SLEPC
 
 # Compile Chapel program
 $(TARGET): $(SRC) | $(BIN_DIR)
-	$(CHPL) -M$(CGNS_MOD_DIR) -M$(CGNS_MOD_DIR_SRC) -M$(COMMON_MOD_DIR) $(ALL_INCLUDES) $(ALL_LIBS) $(SRC) -o $(TARGET) --local
+	$(CHPL) -M$(CGNS_MOD_DIR) -M$(CGNS_MOD_DIR_SRC) -M$(COMMON_MOD_DIR) $(ALL_INCLUDES) $(ALL_LIBS) $(SRC) -o $(TARGET) --local --fast
 
 # Create bin directory if it does not exist
 $(BIN_DIR):

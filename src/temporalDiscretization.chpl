@@ -6,6 +6,7 @@ use linearAlgebra;
 import input.inputsConfig;
 use Time;
 use Math;
+use List;
 
 class temporalDiscretization {
     var spatialDisc_ : shared spatialDiscretization;
@@ -36,6 +37,16 @@ class temporalDiscretization {
     const a3 = 0.3750; const b3 = 0.56;
     const a4 = 0.5; const b4 = 0.0;
     const a5 = 1.0; const b5 = 0.44;
+
+    var timeList = new list(real(64));
+    var itList = new list(int);
+    var res0List = new list(real(64));
+    var res1List = new list(real(64));
+    var res2List = new list(real(64));
+    var res3List = new list(real(64));
+    var clList = new list(real(64));
+    var cdList = new list(real(64));
+    var cmList = new list(real(64));
 
     proc init(spatialDisc : shared spatialDiscretization, ref inputs : inputsConfig) {
         this.spatialDisc_ = spatialDisc;
@@ -155,24 +166,55 @@ class temporalDiscretization {
     proc solve() {
         var time: stopwatch;
         var res0 = 1e12;
+        var firstRes0 = 0.0;
+        var firstRes1 = 0.0;
+        var firstRes2 = 0.0;
+        var firstRes3 = 0.0;
         while (res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(res0) == false) {
+            this.it_ += 1;
+            
             time.start();
             this.compute_dt();
             this.RKstep();
 
-            this.it_ += 1;
-
-            res0 = l2Norm(this.R0_);
-            const res1 = l2Norm(this.R1_);
-            const res2 = l2Norm(this.R2_);
-            const res3 = l2Norm(this.R3_);
-
             const (Cl, Cd, Cm) = this.spatialDisc_.compute_aerodynamics_coefficients();
 
             time.stop();
+
+            res0 = l2Norm(this.R0_);
+            var res1 = l2Norm(this.R1_);
+            var res2 = l2Norm(this.R2_);
+            var res3 = l2Norm(this.R3_);
+
+            if this.it_ == 1 {
+                firstRes0 = res0;
+                firstRes1 = res1;
+                firstRes2 = res2;
+                firstRes3 = res3;
+            }
+
+            res0 = res0 / firstRes0;
+            res1 = res1 / firstRes1;
+            res2 = res2 / firstRes2;
+            res3 = res3 / firstRes3;
+
             writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
+
+            this.timeList.pushBack(time.elapsed());
+            this.itList.pushBack(this.it_);
+            this.res0List.pushBack(res0);
+            this.res1List.pushBack(res1);
+            this.res2List.pushBack(res2);
+            this.res3List.pushBack(res3);
+            this.clList.pushBack(Cl);
+            this.cdList.pushBack(Cd);
+            this.cmList.pushBack(Cm);
+
+            if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
+                this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
+            }
         }
-        this.spatialDisc_.writeSolution2CGNS();
+        this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
     }
 }
 

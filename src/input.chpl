@@ -3,6 +3,7 @@ use Math;
 config const MESH_FILENAME : string;
 config const GEOMETRY_FILENAME : string;
 config const OUTPUT_FILENAME : string;
+config const CGNS_OUTPUT_FREQ : int;
 
 config const X_REF : real(64);
 config const Y_REF : real(64);
@@ -21,6 +22,7 @@ record inputsConfig {
     var MESH_FILENAME_: string = MESH_FILENAME;
     var GEOMETRY_FILENAME_: string = GEOMETRY_FILENAME;
     var OUTPUT_FILENAME_: string = OUTPUT_FILENAME;
+    var CGNS_OUTPUT_FREQ_: int = CGNS_OUTPUT_FREQ;
 
     var X_REF_ : real(64) = X_REF;
     var Y_REF_ : real(64) = Y_REF;

@@ -7,6 +7,7 @@ use Set;
 use Sort;
 use kExactLeastSquare;
 use Map;
+use Math;
 
 // === Generic 1D reader (for real(64) or int) ===
 proc read1DDataset(type eltType, file_id: hid_t, name: string): [] eltType {
@@ -383,7 +384,7 @@ class meshData {
         
 
         // Identify ghost cells
-        var ghostCellList = new list((int, int));
+        var ghostCellList = new list((real(64), int, int));
         for j in 0..<njCell_ {
             for i in 0..<niCell_ {
                 var idx = iiCell(i, j);
@@ -394,17 +395,19 @@ class meshData {
                         if this.cellTypes_[nidx] == 1 {
                             // neighbor is fluid, mark as ghost
                             this.cellTypes_[idx] = 0;
-                            ghostCellList.pushBack((i, j));
+                            ghostCellList.pushBack((atan2(yCells_[idx], 0.5 - xCells_[idx]), i, j)); // 0.5 to make the center at x=0.5 when computing theta
                             break;
                         }
                     }
                 }
             }
         }
+        sort(ghostCellList);
 
         this.ghostCellDom_ = {0..<ghostCellList.size};
         forall i in this.ghostCellDom_ {
-            this.ghostCellIJ_[i] = ghostCellList[i];
+            this.ghostCellIJ_[i][0] = ghostCellList[i][1];
+            this.ghostCellIJ_[i][1] = ghostCellList[i][2];
             this.ghostCellIndices_[i] = iiCell(ghostCellIJ_[i][0], ghostCellIJ_[i][1]);
         }
 
