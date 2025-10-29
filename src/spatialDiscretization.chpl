@@ -465,7 +465,7 @@ class spatialDiscretization {
                     const p_b = this.inputs_.P_INF_;
                     const rho_b = this.rhorho_[topCellWithGhost] + (p_b - this.pp_[topCellWithGhost]) / (c0**2);
                     const u_b = this.uu_[topCellWithGhost];
-                    const v_b = this.vv_[topCellWithGhost] + (this.pp_[topCellWithGhost] - p_b) / (this.rhorho_[topCellWithGhost] * c0);
+                    const v_b = this.vv_[topCellWithGhost] - (this.pp_[topCellWithGhost] - p_b) / (this.rhorho_[topCellWithGhost] * c0); // note the minus sign here because ny is down
                     const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
 
                     this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
@@ -489,7 +489,7 @@ class spatialDiscretization {
                 const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[rightCellWithGhost] / this.rhorho_[rightCellWithGhost] );
                 const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[rightCellWithGhost] - this.rhorho_[rightCellWithGhost]*c0*(this.inputs_.U_INF_ - this.uu_[rightCellWithGhost]) );
                 const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
-                const u_b = this.inputs_.U_INF_ - (this.inputs_.P_INF_ - p_b) / (this.rhorho_[rightCellWithGhost] * c0);
+                const u_b = this.inputs_.U_INF_ + (this.inputs_.P_INF_ - p_b) / (this.rhorho_[rightCellWithGhost] * c0); // note the plus sign here because nx is towards left
                 const v_b = this.inputs_.V_INF_;
                 const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
 
@@ -515,7 +515,7 @@ class spatialDiscretization {
                     const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[topCellWithGhost] - this.rhorho_[topCellWithGhost]*c0*(this.inputs_.V_INF_ - this.vv_[topCellWithGhost]) );
                     const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
                     const u_b = this.inputs_.U_INF_;
-                    const v_b = this.inputs_.V_INF_ - (this.inputs_.P_INF_ - p_b) / (this.rhorho_[topCellWithGhost] * c0);
+                    const v_b = this.inputs_.V_INF_ + (this.inputs_.P_INF_ - p_b) / (this.rhorho_[topCellWithGhost] * c0); // note the plus sign here because ny is towards down
                     const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
 
                     this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
