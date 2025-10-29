@@ -6,6 +6,7 @@ use List;
 use Set;
 use Sort;
 use kExactLeastSquare;
+use Map;
 
 // === Generic 1D reader (for real(64) or int) ===
 proc read1DDataset(type eltType, file_id: hid_t, name: string): [] eltType {
@@ -99,6 +100,7 @@ class meshData {
     var niCell_ : int;
     var njCell_ : int;
     var nCell_ : int;
+    var nFace_ : int;
 
     var node_dom_ : domain(1) = {1..0};
     var xNodes_ : [node_dom_] real(64);
@@ -134,6 +136,7 @@ class meshData {
     var ghostCells_y_mirror_ : [ghostCellDom_] real(64);
     var ghostCells_x_bi_ : [ghostCellDom_] real(64);
     var ghostCells_y_bi_ : [ghostCellDom_] real(64);
+    var ghostCells_z_bi_ : [ghostCellDom_] real(64);
 
     var ghostCellsNearestFluidCells_dom_ : domain(2) = {1..0, 1..0};
     var ghostCellsNearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
@@ -157,6 +160,7 @@ class meshData {
         this.niCell_ = niNode_ - 1;
         this.njCell_ = njNode_ - 1;
         this.nCell_ = niCell_ * njCell_;
+        this.nFace_ = (niCell_+1)*njCell_;
 
         writeln("Mesh dimensions: niNode = ", niNode_, ", njNode = ", njNode_);
 

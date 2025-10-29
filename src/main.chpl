@@ -2,8 +2,8 @@ use IO;
 import input.inputsConfig;
 use Time;
 use mesh;
-use writeCGNS;
 use spatialDiscretization;
+use temporalDiscretization;
 
 proc main() {
     var time: stopwatch;
@@ -19,14 +19,12 @@ proc main() {
     mesh.levelSet(X_geo, Y_geo);
     mesh.computeIBnormals();
 
-    var FVM = new spatialDiscretization(mesh, inputs);
+    var FVM = new shared spatialDiscretization(mesh, inputs);
     FVM.initializeFlowField();
-    FVM.updateGhostCells();
-    FVM.compute_convective_fluxes();
-    FVM.compute_lambdas();
+    FVM.run_odd();
 
-    var writer = new cgnsFlowWriter_c(inputs.OUTPUT_FILENAME_);
-    writer.writeToCGNS(mesh);
+    var solver = new shared temporalDiscretization(FVM, inputs);
+    solver.solve();
 
     time.stop();
     writeln("Runtime: ", time.elapsed(), " seconds");

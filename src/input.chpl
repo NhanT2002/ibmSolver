@@ -15,6 +15,7 @@ config const K4 : real(64);
 
 config const CFL : real(64);
 config const IT_MAX : int;
+config const CONV_TOL : real(64);
 
 record inputsConfig {
     var MESH_FILENAME_: string = MESH_FILENAME;
@@ -32,6 +33,7 @@ record inputsConfig {
 
     var CFL_ : real(64) = CFL;
     var IT_MAX_ : int = IT_MAX;
+    var CONV_TOL_ : real(64) = CONV_TOL;
 
     var RHO_INF_ : real(64) = 1.0;
     var P_INF_ : real(64) = 1.0;
@@ -57,5 +59,6 @@ record inputsConfig {
 
         writeln("CFL = ", CFL);
         writeln("IT_MAX = ", IT_MAX);
+        writeln("CONV_TOL = ", CONV_TOL);
     }
 }
