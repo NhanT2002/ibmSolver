@@ -156,10 +156,105 @@ class temporalDiscretization {
             this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
             this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
 
-            this.R0_[cell] = this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell];
-            this.R1_[cell] = this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell];
-            this.R2_[cell] = this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell];
-            this.R3_[cell] = this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell];
+            this.R0_[cell] = this.spatialDisc_.W0_[cell] - this.W0_0_[cell];
+            this.R1_[cell] = this.spatialDisc_.W1_[cell] - this.W1_0_[cell];
+            this.R2_[cell] = this.spatialDisc_.W2_[cell] - this.W2_0_[cell];
+            this.R3_[cell] = this.spatialDisc_.W3_[cell] - this.W3_0_[cell];
+        }
+    }
+
+    proc RKstepWithResidualSmoothing() {
+        this.W0_0_ = this.spatialDisc_.W0_;
+        this.W1_0_ = this.spatialDisc_.W1_;
+        this.W2_0_ = this.spatialDisc_.W2_;
+        this.W3_0_ = this.spatialDisc_.W3_;
+
+        // Stage 1
+        this.spatialDisc_.run_odd();
+        this.Rd0_0_ = this.spatialDisc_.Rd0_;
+        this.Rd1_0_ = this.spatialDisc_.Rd1_;
+        this.Rd2_0_ = this.spatialDisc_.Rd2_;
+        this.Rd3_0_ = this.spatialDisc_.Rd3_;
+
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.spatialDisc_.W0_[cell] = this.W0_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell]);
+            this.spatialDisc_.W1_[cell] = this.W1_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell]);
+            this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
+            this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
+        }
+
+        // Stage 2
+        this.spatialDisc_.run_even();
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.spatialDisc_.W0_[cell] = this.W0_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell]);
+            this.spatialDisc_.W1_[cell] = this.W1_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell]);
+            this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
+            this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
+        }
+
+        // Stage 3 - update dissipation
+        this.spatialDisc_.run_odd();
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.Rd0_0_[cell] = b3 * this.spatialDisc_.Rd0_[cell] + (1 - b3) * this.Rd0_0_[cell];
+            this.Rd1_0_[cell] = b3 * this.spatialDisc_.Rd1_[cell] + (1 - b3) * this.Rd1_0_[cell];
+            this.Rd2_0_[cell] = b3 * this.spatialDisc_.Rd2_[cell] + (1 - b3) * this.Rd2_0_[cell];
+            this.Rd3_0_[cell] = b3 * this.spatialDisc_.Rd3_[cell] + (1 - b3) * this.Rd3_0_[cell];
+        }
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.spatialDisc_.W0_[cell] = this.W0_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell]);
+            this.spatialDisc_.W1_[cell] = this.W1_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell]);
+            this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
+            this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
+        }
+
+        // Stage 4
+        this.spatialDisc_.run_even();
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.spatialDisc_.W0_[cell] = this.W0_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell]);
+            this.spatialDisc_.W1_[cell] = this.W1_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell]);
+            this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
+            this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
+        }
+
+        // Stage 5 - update dissipation
+        this.spatialDisc_.run_odd();
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.Rd0_0_[cell] = b5 * this.spatialDisc_.Rd0_[cell] + (1 - b5) * this.Rd0_0_[cell];
+            this.Rd1_0_[cell] = b5 * this.spatialDisc_.Rd1_[cell] + (1 - b5) * this.Rd1_0_[cell];
+            this.Rd2_0_[cell] = b5 * this.spatialDisc_.Rd2_[cell] + (1 - b5) * this.Rd2_0_[cell];
+            this.Rd3_0_[cell] = b5 * this.spatialDisc_.Rd3_[cell] + (1 - b5) * this.Rd3_0_[cell];
+        }
+        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
+            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
+                continue;
+            }
+            this.spatialDisc_.W0_[cell] = this.W0_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc0_[cell] - this.Rd0_0_[cell]);
+            this.spatialDisc_.W1_[cell] = this.W1_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc1_[cell] - this.Rd1_0_[cell]);
+            this.spatialDisc_.W2_[cell] = this.W2_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc2_[cell] - this.Rd2_0_[cell]);
+            this.spatialDisc_.W3_[cell] = this.W3_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * (this.spatialDisc_.Rc3_[cell] - this.Rd3_0_[cell]);
+
+            this.R0_[cell] = this.spatialDisc_.W0_[cell] - this.W0_0_[cell];
+            this.R1_[cell] = this.spatialDisc_.W1_[cell] - this.W1_0_[cell];
+            this.R2_[cell] = this.spatialDisc_.W2_[cell] - this.W2_0_[cell];
+            this.R3_[cell] = this.spatialDisc_.W3_[cell] - this.W3_0_[cell];
         }
     }
 
@@ -170,50 +265,106 @@ class temporalDiscretization {
         var firstRes1 = 0.0;
         var firstRes2 = 0.0;
         var firstRes3 = 0.0;
-        while (res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(res0) == false) {
-            this.it_ += 1;
-            
-            time.start();
-            this.compute_dt();
-            this.RKstep();
 
-            const (Cl, Cd, Cm) = this.spatialDisc_.compute_aerodynamics_coefficients();
+        if this.inputs_.RESIDUAL_SMOOTHING_ == true {
+            while (res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(res0) == false) {
+                this.it_ += 1;
+                
+                time.start();
+                this.compute_dt();
+                this.RKstepWithResidualSmoothing();
 
-            time.stop();
+                const (Cl, Cd, Cm) = this.spatialDisc_.compute_aerodynamics_coefficients();
 
-            res0 = l2Norm(this.R0_);
-            var res1 = l2Norm(this.R1_);
-            var res2 = l2Norm(this.R2_);
-            var res3 = l2Norm(this.R3_);
+                time.stop();
 
-            if this.it_ == 1 {
-                firstRes0 = res0;
-                firstRes1 = res1;
-                firstRes2 = res2;
-                firstRes3 = res3;
+                res0 = l2Norm(this.R0_);
+                var res1 = l2Norm(this.R1_);
+                var res2 = l2Norm(this.R2_);
+                var res3 = l2Norm(this.R3_);
+
+                if this.it_ == 1 {
+                    firstRes0 = res0;
+                    firstRes1 = res1;
+                    firstRes2 = res2;
+                    firstRes3 = res3;
+                }
+
+                res0 = res0 / firstRes0;
+                res1 = res1 / firstRes1;
+                res2 = res2 / firstRes2;
+                res3 = res3 / firstRes3;
+
+                writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
+
+                this.timeList.pushBack(time.elapsed());
+                this.itList.pushBack(this.it_);
+                this.res0List.pushBack(res0);
+                this.res1List.pushBack(res1);
+                this.res2List.pushBack(res2);
+                this.res3List.pushBack(res3);
+                this.clList.pushBack(Cl);
+                this.cdList.pushBack(Cd);
+                this.cmList.pushBack(Cm);
+
+                if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
+                    writeln("Writing CGNS output at iteration ", this.it_);
+                    this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
+                }
             }
+        } 
+        
+        else if this.inputs_.RESIDUAL_SMOOTHING_ == false {
+            while (res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(res0) == false) {
+                this.it_ += 1;
+                
+                time.start();
+                this.compute_dt();
+                this.RKstep();
 
-            res0 = res0 / firstRes0;
-            res1 = res1 / firstRes1;
-            res2 = res2 / firstRes2;
-            res3 = res3 / firstRes3;
+                const (Cl, Cd, Cm) = this.spatialDisc_.compute_aerodynamics_coefficients();
 
-            writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
+                time.stop();
 
-            this.timeList.pushBack(time.elapsed());
-            this.itList.pushBack(this.it_);
-            this.res0List.pushBack(res0);
-            this.res1List.pushBack(res1);
-            this.res2List.pushBack(res2);
-            this.res3List.pushBack(res3);
-            this.clList.pushBack(Cl);
-            this.cdList.pushBack(Cd);
-            this.cmList.pushBack(Cm);
+                res0 = l2Norm(this.R0_);
+                var res1 = l2Norm(this.R1_);
+                var res2 = l2Norm(this.R2_);
+                var res3 = l2Norm(this.R3_);
 
-            if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
-                this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
+                if this.it_ == 1 {
+                    firstRes0 = res0;
+                    firstRes1 = res1;
+                    firstRes2 = res2;
+                    firstRes3 = res3;
+                }
+
+                res0 = res0 / firstRes0;
+                res1 = res1 / firstRes1;
+                res2 = res2 / firstRes2;
+                res3 = res3 / firstRes3;
+
+                writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
+
+                this.timeList.pushBack(time.elapsed());
+                this.itList.pushBack(this.it_);
+                this.res0List.pushBack(res0);
+                this.res1List.pushBack(res1);
+                this.res2List.pushBack(res2);
+                this.res3List.pushBack(res3);
+                this.clList.pushBack(Cl);
+                this.cdList.pushBack(Cd);
+                this.cmList.pushBack(Cm);
+
+                if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
+                    writeln("Writing CGNS output at iteration ", this.it_);
+                    this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
+                }
             }
         }
+        this.spatialDisc_.R0_ = this.R0_;
+        this.spatialDisc_.R1_ = this.R1_;
+        this.spatialDisc_.R2_ = this.R2_;
+        this.spatialDisc_.R3_ = this.R3_;
         this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
     }
 }

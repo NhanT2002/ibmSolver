@@ -48,6 +48,11 @@ class spatialDiscretization {
     var Rd2_ : [cell_dom_with_ghosts_] real(64);
     var Rd3_ : [cell_dom_with_ghosts_] real(64);
 
+    var R0_ : [cell_dom_with_ghosts_] real(64);
+    var R1_ : [cell_dom_with_ghosts_] real(64);
+    var R2_ : [cell_dom_with_ghosts_] real(64);
+    var R3_ : [cell_dom_with_ghosts_] real(64);
+
     var ghostCellIndices_dom_ : domain(1) = {1..0};
     var ghostCellWallIndicesWithGhost_ : [ghostCellIndices_dom_] int;
     var ghostCellsNearestFluidCellsWithGhost_ : [ghostCellIndices_dom_] (int, int, int);
@@ -637,7 +642,7 @@ class spatialDiscretization {
         }
     }
 
-    proc epsilon(p_Im2 : real(64), p_Im1: real(64), p_I: real(64), p_Ip1: real(64), p_Ip2: real(64)) {
+    proc epsilon(p_Im1: real(64), p_I: real(64), p_Ip1: real(64), p_Ip2: real(64)) {
         const gamma_I = abs(p_Ip1 - 2.0 * p_I + p_Im1) / (p_Ip1 + 2.0 * p_I + p_Im1);
         const gamma_Ip1 = abs(p_Ip2 - 2.0 * p_Ip1 + p_I) / (p_Ip2 + 2.0 * p_Ip1 + p_I);
         const eps2 = this.inputs_.K2_ * max(gamma_I, gamma_Ip1);
@@ -658,7 +663,7 @@ class spatialDiscretization {
             const leftCell_m1 = leftCell - 1;
             const rightCell_p1 = rightCell + 1;
 
-            const (eps2, eps4) = this.epsilon(this.pp_[leftCell_m1], this.pp_[leftCell], this.pp_[rightCell], this.pp_[rightCell_p1], this.pp_[rightCell_p1 + 1]);
+            const (eps2, eps4) = this.epsilon(this.pp_[leftCell_m1], this.pp_[leftCell], this.pp_[rightCell], this.pp_[rightCell_p1]);
             const LambdaS = 0.5*(this.LambdaI_[leftCell] + this.LambdaI_[rightCell]) + 0.5*(this.LambdaJ_[leftCell] + this.LambdaJ_[rightCell]);
 
             this.D0I_[face] = LambdaS * (eps2 * (this.W0_[rightCell] - this.W0_[leftCell]) - eps4 * (this.W0_[rightCell_p1] - 3.0 * this.W0_[rightCell] + 3.0 * this.W0_[leftCell] - this.W0_[leftCell_m1]) );
@@ -679,7 +684,7 @@ class spatialDiscretization {
             const bottomCell_m1 = bottomCell - this.niCellWithGhosts_;
             const topCell_p1 = topCell + this.niCellWithGhosts_;
 
-            const (eps2, eps4) = this.epsilon(this.pp_[bottomCell_m1], this.pp_[bottomCell], this.pp_[topCell], this.pp_[topCell_p1], this.pp_[topCell_p1 + this.niCellWithGhosts_]);
+            const (eps2, eps4) = this.epsilon(this.pp_[bottomCell_m1], this.pp_[bottomCell], this.pp_[topCell], this.pp_[topCell_p1]);
             const LambdaS = 0.5*(this.LambdaI_[bottomCell] + this.LambdaI_[topCell]) + 0.5*(this.LambdaJ_[bottomCell] + this.LambdaJ_[topCell]);
 
             this.D0J_[face] = LambdaS * (eps2 * (this.W0_[topCell] - this.W0_[bottomCell]) - eps4 * (this.W0_[topCell_p1] - 3.0 * this.W0_[topCell] + 3.0 * this.W0_[bottomCell] - this.W0_[bottomCell_m1]) );
@@ -842,10 +847,10 @@ class spatialDiscretization {
                     Rd1[idx] = this.Rd1_[idxWithGhost];
                     Rd2[idx] = this.Rd2_[idxWithGhost];
                     Rd3[idx] = this.Rd3_[idxWithGhost];
-                    R0[idx] = this.Rc0_[idxWithGhost] - this.Rd0_[idxWithGhost];
-                    R1[idx] = this.Rc1_[idxWithGhost] - this.Rd1_[idxWithGhost];
-                    R2[idx] = this.Rc2_[idxWithGhost] - this.Rd2_[idxWithGhost];
-                    R3[idx] = this.Rc3_[idxWithGhost] - this.Rd3_[idxWithGhost];
+                    R0[idx] = this.R0_[idxWithGhost];
+                    R1[idx] = this.R1_[idxWithGhost];
+                    R2[idx] = this.R2_[idxWithGhost];
+                    R3[idx] = this.R3_[idxWithGhost];
                 }
                 
                 const a = sqrt(this.inputs_.GAMMA_ * p[idx] / rho[idx]);

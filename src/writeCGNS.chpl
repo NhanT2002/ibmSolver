@@ -172,7 +172,7 @@ class cgnsFlowWriter_c {
             iterationsArray[i] = iterations[i];
         }
 
-        var convData: [0..<nMetrics, 0..<maxIter] real;
+        var convData: [0..<nMetrics, 0..<maxIter] real(64);
         convData[0, ..] = time;
         convData[1, ..] = res0;
         convData[2, ..] = res1;

@@ -5,3 +5,4 @@ output/
 bin/*
 *.gif
 *.ods
+*.out

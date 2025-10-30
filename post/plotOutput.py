@@ -22,7 +22,7 @@ def data(filename) :
 
     return X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm
 
-X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm = data('../output/output_39.cgns')
+X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm = data('../output/output_test_41.cgns')
 
 plt.figure()
 plt.plot(X, Cp, "o")
@@ -33,9 +33,12 @@ plt.show()
 
 plt.figure()
 plt.semilogy(it, res0, label='Res0')
-plt.semilogy(it, res1, label='Res1')
-plt.semilogy(it, res2, label='Res2')
-plt.semilogy(it, res3, label='Res3')
 plt.xlabel('Iteration')
+plt.ylabel('Residuals')
+plt.legend()
+
+plt.figure()
+plt.semilogy(time, res0, label='Res0')
+plt.xlabel('Time (s)')
 plt.ylabel('Residuals')
 plt.legend()
