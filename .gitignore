@@ -5,4 +5,5 @@ output/
 bin/*
 *.gif
 *.ods
+nohup*
 *.out

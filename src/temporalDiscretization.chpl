@@ -295,7 +295,9 @@ class temporalDiscretization {
                 res2 = res2 / firstRes2;
                 res3 = res3 / firstRes3;
 
-                writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
+                writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, 
+                        " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm,
+                        " R0[500] = ", this.R0_[500]);
 
                 this.timeList.pushBack(time.elapsed());
                 this.itList.pushBack(this.it_);
@@ -309,6 +311,10 @@ class temporalDiscretization {
 
                 if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
                     writeln("Writing CGNS output at iteration ", this.it_);
+                    this.spatialDisc_.R0_ = this.R0_;
+                    this.spatialDisc_.R1_ = this.R1_;
+                    this.spatialDisc_.R2_ = this.R2_;
+                    this.spatialDisc_.R3_ = this.R3_;
                     this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
                 }
             }
@@ -357,6 +363,10 @@ class temporalDiscretization {
 
                 if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
                     writeln("Writing CGNS output at iteration ", this.it_);
+                    this.spatialDisc_.R0_ = this.R0_;
+                    this.spatialDisc_.R1_ = this.R1_;
+                    this.spatialDisc_.R2_ = this.R2_;
+                    this.spatialDisc_.R3_ = this.R3_;
                     this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, res2List, res3List, clList, cdList, cmList);
                 }
             }

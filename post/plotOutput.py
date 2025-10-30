@@ -22,7 +22,7 @@ def data(filename) :
 
     return X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm
 
-X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm = data('../output/output_test_41.cgns')
+X, Y, Cp, it, time, res0, res1, res2, res3, cl, cd, cm = data('../output/output_test_98.cgns')
 
 plt.figure()
 plt.plot(X, Cp, "o")
