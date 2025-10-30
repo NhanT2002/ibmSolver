@@ -1,6 +1,6 @@
-MESH_FILENAME=pre/cartesian_mesh_0-05.cgns
+MESH_FILENAME=pre/cartesian_mesh_0-01.cgns
 GEOMETRY_FILENAME=pre/naca0012_geometry.cgns
-OUTPUT_FILENAME=output/output_test.cgns
+OUTPUT_FILENAME=output/output.cgns
 CGNS_OUTPUT_FREQ=10000
 
 X_REF=0.25

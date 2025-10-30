@@ -296,8 +296,7 @@ class temporalDiscretization {
                 res3 = res3 / firstRes3;
 
                 writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Residuals: ", res0, ", ", res1, ", ", res2, ", ", res3, 
-                        " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm,
-                        " R0[500] = ", this.R0_[500]);
+                        " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm);
 
                 this.timeList.pushBack(time.elapsed());
                 this.itList.pushBack(this.it_);
