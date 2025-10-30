@@ -7,3 +7,4 @@ bin/*
 *.ods
 nohup*
 *.out
+*.ods*
