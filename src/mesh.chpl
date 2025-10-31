@@ -139,10 +139,10 @@ class meshData {
     var ghostCells_y_bi_ : [ghostCellDom_] real(64);
     var ghostCells_z_bi_ : [ghostCellDom_] real(64);
 
-    var ghostCellsNearestFluidCells_dom_ : domain(2) = {1..0, 1..0};
+    const nkls_ = 4;
     var ghostCellsNearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
-    var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCells_dom_] int;
-    var ghostCellsNearestFluidCellsIJ_ : [ghostCellsNearestFluidCells_dom_] (int, int);
+    var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCellsCx_dom_] int;
+    var ghostCellsNearestFluidCellsIJ_ : [ghostCellsNearestFluidCellsCx_dom_] (int, int);
     var ghostCellsNearestFluidCellsCx_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellsNearestFluidCellsCy_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellkls_ : [ghostCellDom_] owned kls?;
@@ -411,8 +411,7 @@ class meshData {
             this.ghostCellIndices_[i] = iiCell(ghostCellIJ_[i][0], ghostCellIJ_[i][1]);
         }
 
-        this.ghostCellsNearestFluidCells_dom_ = {0..<ghostCellDom_.size, 0..2};
-        this.ghostCellsNearestFluidCellsCx_dom_ = {0..<ghostCellDom_.size, 0..3};
+        this.ghostCellsNearestFluidCellsCx_dom_ = {0..<ghostCellDom_.size, 0..<this.nkls_};
     }
 
     proc computeIBnormals() {
@@ -516,16 +515,14 @@ class meshData {
                         dists.pushBack((dist, cell));
                     }
                 }
-            // Sort distances and get indices of nearest 3
+            // Sort distances and get indices of nearest 4
             sort(dists);
-            for k in 0..<3 {
+            for k in 0..<this.nkls_ {
                 this.ghostCellsNearestFluidCells_[i, k] = dists[k][1];
                 this.ghostCellsNearestFluidCellsIJ_[i, k] = (dists[k][1] % niCell_, dists[k][1] / niCell_);
                 this.ghostCellsNearestFluidCellsCx_[i, k] = xCells_[dists[k][1]];
                 this.ghostCellsNearestFluidCellsCy_[i, k] = yCells_[dists[k][1]];
             }
-            this.ghostCellsNearestFluidCellsCx_[i, 3] = this.ghostCells_x_bi_[i];
-            this.ghostCellsNearestFluidCellsCy_[i, 3] = this.ghostCells_y_bi_[i];
             this.ghostCellkls_[i] = new owned kls(this.ghostCellsNearestFluidCellsCx_[i, 0..],
                                                   this.ghostCellsNearestFluidCellsCy_[i, 0..],
                                                   this.ghostCells_x_mirror_[i],

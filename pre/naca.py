@@ -4,7 +4,7 @@ import Transform.PyTree as T
 import Geom.PyTree as D
 import Converter.Internal as I
 
-cellSizes = {0.1: '0-1', 0.05: '0-05', 0.01: '0-01'}
+cellSizes = {0.1: '0-1', 0.05: '0-05', 0.01: '0-01', 0.005: '0-005', 0.0005: '0-0005'}
 
 for cellsize in cellSizes.keys():
     print(f'Generating mesh with cell size = {cellsize} ...')
@@ -26,7 +26,7 @@ for cellsize in cellSizes.keys():
     mesh = T.reorder(mesh, (-2,-1,3))
     mesh = T.translate(mesh, (0.5,0.,0.))
 
-    I.printTree(mesh)
+    # I.printTree(mesh)
 
     zones = I.getZones(mesh)
     print("Zones before renaming:")
@@ -38,7 +38,21 @@ for cellsize in cellSizes.keys():
     C.convertPyTree2File(mesh, f'cartesian_mesh_{cellSizes[cellsize]}.cgns')
 
 
-naca = D.naca('0012', N=1001)
+# for cellsize in cellSizes.keys():
+#     mesh1 = G.cartr2((0,0,0), (cellsize,cellsize,0), (1.0015,1.015,0.0), (150.,150.,0.))
+#     mesh2 = G.cartr2((0,0,0), (cellsize,cellsize,0), (1.015,1.0015,0.0), (150.,150.,0.))
+#     mesh2 = T.rotate(mesh2, (0,0,0), (0,0,1), 90)
+#     mesh3 = T.join(mesh1, mesh2)
+#     mesh4 = T.rotate(mesh3, (0,0,0), (0,0,1), 180)
+#     mesh = T.join(mesh3, mesh4)
+#     mesh = T.reorder(mesh, (-2,-1,3))
+#     mesh = T.translate(mesh, (0.5,0.,0.))
+#     zones = I.getZones(mesh)
+#     for i, z in enumerate(zones):
+#         mesh = I.renameNode(mesh, z[0], f'Block_{i+1}')
+#     C.convertPyTree2File(mesh, f'cartesian_mesh_{cellSizes[cellsize]}.cgns')
+
+naca = D.naca('0012', N=10001)
 zones = I.getZones(naca)
 naca = I.renameNode(naca, zones[0][0], 'Geometry')
 C.convertPyTree2File(naca, 'naca0012_geometry.cgns')

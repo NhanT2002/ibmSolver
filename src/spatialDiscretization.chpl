@@ -55,7 +55,8 @@ class spatialDiscretization {
 
     var ghostCellIndices_dom_ : domain(1) = {1..0};
     var ghostCellWallIndicesWithGhost_ : [ghostCellIndices_dom_] int;
-    var ghostCellsNearestFluidCellsWithGhost_ : [ghostCellIndices_dom_] (int, int, int);
+    var ghostCellsNearestFluidCellsWithGhost_dom_ : domain(2) = {1..0, 1..0};
+    var ghostCellsNearestFluidCellsWithGhost_ : [ghostCellsNearestFluidCellsWithGhost_dom_] int;
 
     var ghostCells_rho_bi_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_u_bi_ : [ghostCellIndices_dom_] real(64);
@@ -114,6 +115,7 @@ class spatialDiscretization {
         this.niCellWithGhosts_ = niCell_ + 4;
         this.njCellWithGhosts_ = njCell_ + 4;
         this.ghostCellIndices_dom_ = this.mesh_.ghostCellIndices_.domain;
+        this.ghostCellsNearestFluidCellsWithGhost_dom_ = this.mesh_.ghostCellsNearestFluidCells_.domain;
         this.face_dom_ = {0..<( (niCell_+1)*njCell_ )};
 
         writeln("spatialDiscretization initialized.");
@@ -191,12 +193,12 @@ class spatialDiscretization {
             this.ghostCellWallIndicesWithGhost_[id] = idxWithGhost;
         }
         forall i in this.ghostCellIndices_dom_ {
-            for j in this.mesh_.ghostCellsNearestFluidCells_dom_.dim(1) {
+            for j in this.mesh_.ghostCellsNearestFluidCellsCx_dom_.dim(1) {
                 const (fi, fj) = this.mesh_.ghostCellsNearestFluidCellsIJ_[i, j];
                 const fi_withGhost = fi + 2;
                 const fj_withGhost = fj + 2;
                 const idxWithGhost = fi_withGhost + fj_withGhost * this.niCellWithGhosts_;
-                this.ghostCellsNearestFluidCellsWithGhost_[i][j] = idxWithGhost;
+                this.ghostCellsNearestFluidCellsWithGhost_[i, j] = idxWithGhost;
             }
         }
         this.cellTypesWithGhosts_ = 9;
@@ -270,25 +272,26 @@ class spatialDiscretization {
         forall i in 0..<this.ghostCellWallIndicesWithGhost_.size {
             const ghostCell = this.ghostCellWallIndicesWithGhost_[i];
             var kls = this.mesh_.ghostCellkls_[i]!.borrow();
-            for (j, nearestCell) in zip(0..2, this.ghostCellsNearestFluidCellsWithGhost_[i]) { // MAYBE GENERALIZE LATER
+            for (j, nearestCell) in zip(0..<4, this.ghostCellsNearestFluidCellsWithGhost_[i, 0..]) { // MAYBE GENERALIZE LATER
                 kls.rho_fieldValues_[j] = this.rhorho_[nearestCell];
                 kls.u_fieldValues_[j] = this.uu_[nearestCell];
                 kls.v_fieldValues_[j] = this.vv_[nearestCell];
                 kls.E_fieldValues_[j] = this.EE_[nearestCell];
                 kls.p_fieldValues_[j] = this.pp_[nearestCell];
             }
-            // last value is at boundary interface
-            kls.rho_fieldValues_[3] = this.ghostCells_rho_bi_[i];
-            kls.u_fieldValues_[3] = this.ghostCells_u_bi_[i];
-            kls.v_fieldValues_[3] = this.ghostCells_v_bi_[i];
-            kls.E_fieldValues_[3] = this.ghostCells_E_bi_[i];
-            kls.p_fieldValues_[3] = this.ghostCells_p_bi_[i];
 
             const rho_mirror = kls.interpolate(kls.rho_fieldValues_);
             const u_mirror = kls.interpolate(kls.u_fieldValues_);
             const v_mirror = kls.interpolate(kls.v_fieldValues_);
             const E_mirror = kls.interpolate(kls.E_fieldValues_);
             const p_mirror = kls.interpolate(kls.p_fieldValues_);
+
+            // if (i==0) {
+            //     writeln("Ghost cell ", ghostCell, ": rho_mirror=", rho_mirror, " u_mirror=", u_mirror, " v_mirror=", v_mirror, " E_mirror=", E_mirror, " p_mirror=", p_mirror);
+            //     writeln("  nearestCells = ", this.mesh_.ghostCellsNearestFluidCells_[i, 0..]);
+            //     writeln("  u_fieldValues_ = ", kls.u_fieldValues_);
+            //     writeln("  v_fieldValues_ = ", kls.v_fieldValues_);
+            // }
 
             this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
             this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
@@ -315,13 +318,6 @@ class spatialDiscretization {
             this.ghostCells_E_bi_[i] = 0.5 * (this.EE_[ghostCell] + this.ghostCells_E_mirror_[i]);
             this.ghostCells_p_bi_[i] = 0.5 * (this.pp_[ghostCell] + this.ghostCells_p_mirror_[i]);
         }
-        // writeln("ghostCell; x_bi; y_bi; u_bi; v_bi; u_mirror; v_mirror; u_ghost; v_ghost");
-        // for i in this.ghostCellIndices_dom_ {
-        //     const ghostCell = this.ghostCellWallIndicesWithGhost_[i];
-        //     const x = this.mesh_.ghostCells_x_bi_[i];
-        //     const y = this.mesh_.ghostCells_y_bi_[i];
-        //     writeln(ghostCell, "; ", x, "; ", y, "; ", this.ghostCells_u_bi_[i], "; ", this.ghostCells_v_bi_[i], "; ", this.ghostCells_u_mirror_[i], "; ", this.ghostCells_v_mirror_[i], "; ", this.uu_[ghostCell], "; ", this.vv_[ghostCell]);
-        // }
 
 
         // Farfield
@@ -984,7 +980,14 @@ class spatialDiscretization {
         // Wall solution
         var wall_mach: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var wall_cp: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostCx: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostCy: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostuu: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostvv: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostpp: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostrho: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         forall i in 0..<this.ghostCellWallIndicesWithGhost_.size {
+            const idx = this.mesh_.ghostCellIndices_[i];
             const idxWithGhost = this.ghostCellWallIndicesWithGhost_[i];
             const rho_w = this.ghostCells_rho_bi_[i];
             const u_w = this.ghostCells_u_bi_[i];
@@ -992,21 +995,36 @@ class spatialDiscretization {
             const p_w = this.ghostCells_p_bi_[i];
             const a_w = sqrt(this.inputs_.GAMMA_ * p_w / rho_w);
             wall_mach[i] = sqrt(u_w**2 + v_w**2) / a_w;
-
             wall_cp[i] = (p_w - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
+            ghostCx[i] = this.mesh_.xCells_[idx];
+            ghostCy[i] = this.mesh_.yCells_[idx];
+            ghostuu[i] = this.uu_[idxWithGhost];
+            ghostvv[i] = this.vv_[idxWithGhost];
+            ghostpp[i] = this.pp_[idxWithGhost];
+            ghostrho[i] = this.rhorho_[idxWithGhost];
         }
 
         var wall_fields = new map(string, [0..<this.ghostCellWallIndicesWithGhost_.size] real(64));
         wall_fields["x"] = this.mesh_.ghostCells_x_bi_;
         wall_fields["y"] = this.mesh_.ghostCells_y_bi_;
+        wall_fields["x_mirror"] = this.mesh_.ghostCells_x_mirror_;
+        wall_fields["y_mirror"] = this.mesh_.ghostCells_y_mirror_;
         wall_fields["Pressure"] = this.ghostCells_p_bi_;
         wall_fields["Density"] = this.ghostCells_rho_bi_;
         wall_fields["VelocityX"] = this.ghostCells_u_bi_;
         wall_fields["VelocityY"] = this.ghostCells_v_bi_;
         wall_fields["VelocityZ"] = this.ghostCells_w_bi_;
         wall_fields["Energy"] = this.ghostCells_E_bi_;
+        wall_fields["nx"] = this.mesh_.ghostCells_nx_bi_;
+        wall_fields["ny"] = this.mesh_.ghostCells_ny_bi_;
         wall_fields["Mach"] = wall_mach;
         wall_fields["Cp"] = wall_cp;
+        wall_fields["x_ghost"] = ghostCx;
+        wall_fields["y_ghost"] = ghostCy;
+        wall_fields["VelocityX_ghost"] = ghostuu;
+        wall_fields["VelocityY_ghost"] = ghostvv;
+        wall_fields["Pressure_ghost"] = ghostpp;
+        wall_fields["Density_ghost"] = ghostrho;
 
         writer.writeWallToCGNS(this.mesh_, {0..<this.ghostCellWallIndicesWithGhost_.size},wall_fields);
 
