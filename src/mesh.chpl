@@ -70,6 +70,26 @@ proc readMesh(filename: string) {
     return (X, Y, Z);
 }
 
+proc readCGNSFlowField(filename: string) {
+    const dsetDensity    = "/Base/Zone/FLOW_SOLUTION_CC/Density/ data";
+    const dsetVelocityX = "/Base/Zone/FLOW_SOLUTION_CC/VelocityX/ data";
+    const dsetVelocityY = "/Base/Zone/FLOW_SOLUTION_CC/VelocityY/ data";
+    const dsetPressure   = "/Base/Zone/FLOW_SOLUTION_CC/Pressure/ data";
+    const dsetEnergy     = "/Base/Zone/FLOW_SOLUTION_CC/Energy/ data";
+
+    var file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if file_id < 0 then halt("Could not open file: ", filename);
+
+    var Density    = read2DDataset(real(64), file_id, dsetDensity);
+    var VelocityX = read2DDataset(real(64), file_id, dsetVelocityX);
+    var VelocityY = read2DDataset(real(64), file_id, dsetVelocityY);
+    var Pressure   = read2DDataset(real(64), file_id, dsetPressure);
+    var Energy     = read2DDataset(real(64), file_id, dsetEnergy);
+
+    H5Fclose(file_id);
+    return (Density, VelocityX, VelocityY, Pressure, Energy);
+}
+
 proc readGeometry(filename: string) {
     const dsetX = "/Base/Geometry/GridCoordinates/CoordinateX/ data";
     const dsetY = "/Base/Geometry/GridCoordinates/CoordinateY/ data";

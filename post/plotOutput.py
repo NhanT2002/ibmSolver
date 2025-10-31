@@ -62,9 +62,9 @@ def readCGNS(filename) :
 
     return data
 
-data = readCGNS('../output/output_24.cgns')
+data = readCGNS('../output/output_57.cgns')
 
-naca0012 = np.loadtxt('naca0012.dat')
+naca0012 = np.loadtxt('../pre/naca0012.dat')
 
 plt.figure()
 plt.axis('equal')
@@ -72,10 +72,12 @@ plt.plot(naca0012[0, :], naca0012[1, :])
 plt.plot(data['x'], data['y'], ".")
 plt.plot(data['x_mirror'], data['y_mirror'], "x")
 plt.plot(data['x_ghost'], data['y_ghost'], ".")
-plt.quiver(data['x'], data['y'], data['u'], data['v'])
+# plt.quiver(data['x'], data['y'], data['u'], data['v'])
 # plt.quiver(data['x'], data['y'], data['nx'], data['ny'], color='r', scale=20)
-plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], color='g')
-plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
+# plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], color='g')
+# plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
+# plot tangent
+plt.quiver(data['x'], data['y'], -data['ny'], data['nx'])
 plt.xlim([0.0, 0.1])
 
 plt.figure()

@@ -1,7 +1,9 @@
-MESH_FILENAME=pre/cartesian_mesh_0-005.cgns
+MESH_FILENAME=pre/cartesian_mesh_0-01.cgns
 GEOMETRY_FILENAME=pre/naca0012_geometry.cgns
 OUTPUT_FILENAME=output/output.cgns
-CGNS_OUTPUT_FREQ=5000
+CGNS_OUTPUT_FREQ=1000
+
+INITIAL_SOLUTION=output/mesh_0-01/M08_A125.cgns
 
 X_REF=0.25
 Y_REF=0.0
@@ -13,6 +15,6 @@ K2=0.5
 K4=0.015625
 
 CFL=3.6
-IT_MAX=10000
+IT_MAX=2
 CONV_TOL=1e-11
 RESIDUAL_SMOOTHING=true

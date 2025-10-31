@@ -5,6 +5,8 @@ config const GEOMETRY_FILENAME : string;
 config const OUTPUT_FILENAME : string;
 config const CGNS_OUTPUT_FREQ : int;
 
+config const INITIAL_SOLUTION : string = "";
+
 config const X_REF : real(64);
 config const Y_REF : real(64);
 
@@ -24,6 +26,8 @@ record inputsConfig {
     var GEOMETRY_FILENAME_: string = GEOMETRY_FILENAME;
     var OUTPUT_FILENAME_: string = OUTPUT_FILENAME;
     var CGNS_OUTPUT_FREQ_: int = CGNS_OUTPUT_FREQ;
+
+    var INITIAL_SOLUTION_ : string = INITIAL_SOLUTION;
 
     var X_REF_ : real(64) = X_REF;
     var Y_REF_ : real(64) = Y_REF;
@@ -50,6 +54,9 @@ record inputsConfig {
         writeln("MESH_FILENAME = ", MESH_FILENAME);
         writeln("GEOMETRY_FILENAME = ", GEOMETRY_FILENAME);
         writeln("OUTPUT_FILENAME = ", OUTPUT_FILENAME);
+        writeln("CGNS_OUTPUT_FREQ = ", CGNS_OUTPUT_FREQ);
+
+        writeln("INITIAL_SOLUTION = ", INITIAL_SOLUTION);
 
         writeln("X_REF = ", X_REF);
         writeln("Y_REF = ", Y_REF);

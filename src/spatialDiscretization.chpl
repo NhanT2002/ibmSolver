@@ -126,67 +126,36 @@ class spatialDiscretization {
     }
 
     proc initializeFlowField() {
-        this.W0_ = this.inputs_.RHO_INF_;
-        this.W1_ = this.inputs_.RHO_INF_ * this.inputs_.U_INF_;
-        this.W2_ = this.inputs_.RHO_INF_ * this.inputs_.V_INF_;
-        this.W3_ = this.inputs_.RHO_INF_ * this.inputs_.E_INF_;
 
-        this.rhorho_ = this.inputs_.RHO_INF_;
-        this.uu_ = this.inputs_.U_INF_;
-        this.vv_ = this.inputs_.V_INF_;
-        this.EE_ = this.inputs_.E_INF_;
-        this.pp_ = this.inputs_.P_INF_;
-
-        this.ghostCells_rho_bi_ = this.inputs_.RHO_INF_;
-        this.ghostCells_u_bi_ = this.inputs_.U_INF_;
-        this.ghostCells_v_bi_ = this.inputs_.V_INF_;
-        this.ghostCells_E_bi_ = this.inputs_.E_INF_;
-        this.ghostCells_p_bi_ = this.inputs_.P_INF_;
-
-        // Map to mesh cells with ghosts
-        this.xCellsWithGhosts_ = 1e100;
-        this.yCellsWithGhosts_ = 1e100;
-        forall j in 0..<this.mesh_.njCell_ {
-            for i in 0..<this.mesh_.niCell_ {
-                const ii = i + 2;
-                const jj = j + 2;
-                const idxWithGhost = ii + jj * this.niCellWithGhosts_;
-                const idx = this.mesh_.iiCell(i, j);
-                this.xCellsWithGhosts_[idxWithGhost] = this.mesh_.xCells_[idx];
-                this.yCellsWithGhosts_[idxWithGhost] = this.mesh_.yCells_[idx];
-            }
-        }
-        forall i in 2..<this.niCellWithGhosts_-2 {
-            this.xCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        }
-        forall i in 2..<this.niCellWithGhosts_-2 {
-            this.xCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        }
-        forall i in 2..<this.niCellWithGhosts_-2 {
-            this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        }
-        forall i in 2..<this.niCellWithGhosts_-2 {
-            this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        }
-        // // test 
-        // var rands: [0..<this.niCellWithGhosts_] int;
-        // forall i in 0..<this.niCellWithGhosts_ {
-        //     rands[i] = i;
+        // // Map to mesh cells with ghosts
+        // this.xCellsWithGhosts_ = 1e100;
+        // this.yCellsWithGhosts_ = 1e100;
+        // forall j in 0..<this.mesh_.njCell_ {
+        //     for i in 0..<this.mesh_.niCell_ {
+        //         const ii = i + 2;
+        //         const jj = j + 2;
+        //         const idxWithGhost = ii + jj * this.niCellWithGhosts_;
+        //         const idx = this.mesh_.iiCell(i, j);
+        //         this.xCellsWithGhosts_[idxWithGhost] = this.mesh_.xCells_[idx];
+        //         this.yCellsWithGhosts_[idxWithGhost] = this.mesh_.yCells_[idx];
+        //     }
         // }
-        // writeln("rands before = ", rands);
-        // var samp = try! sample(rands, 2);
-        // writeln("sample = ", samp);
-        // const i = samp[0];
-        // const j = samp[1];
-        // const idxWithGhost = i + j * this.niCellWithGhosts_;
-        // const idx = this.mesh_.iiCell(i-2, j-2);
-        // writeln("Test mapping: i=", i, " j=", j, " idxWithGhost=", idxWithGhost, " idx=", idx);
-        // writeln(" xCellsWithGhosts_=", this.xCellsWithGhosts_[idxWithGhost], " mesh xCells_=", this.mesh_.xCells_[idx]);
-        // writeln(" yCellsWithGhosts_=", this.yCellsWithGhosts_[idxWithGhost], " mesh yCells_=", this.mesh_.yCells_[idx]);
+        // forall i in 2..<this.niCellWithGhosts_-2 {
+        //     this.xCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
+        //     this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
+        // }
+        // forall i in 2..<this.niCellWithGhosts_-2 {
+        //     this.xCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
+        //     this.yCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
+        // }
+        // forall i in 2..<this.niCellWithGhosts_-2 {
+        //     this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+        //     this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+        // }
+        // forall i in 2..<this.niCellWithGhosts_-2 {
+        //     this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+        //     this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+        // }
 
         forall (id,(i, j)) in zip(this.mesh_.ghostCellIJ_.domain, this.mesh_.ghostCellIJ_) {
             const idxWithGhost = i+2 + (j+2) * this.niCellWithGhosts_;
@@ -210,6 +179,64 @@ class spatialDiscretization {
                 this.cellVolumesWithGhosts_[idxWithGhost] = this.mesh_.cellVolumes_[idx];
             }
         }
+
+        if this.inputs_.INITIAL_SOLUTION_ != "" {
+            writeln("Reading initial solution from ", this.inputs_.INITIAL_SOLUTION_);
+            const (Density, VelocityX, VelocityY, Pressure, Energy) = readCGNSFlowField(this.inputs_.INITIAL_SOLUTION_);
+
+            if Density.size != this.mesh_.nCell_ {
+                halt("Error: Initial solution size does not match number of cells with ghosts.");
+            }
+            else {
+                forall j in 0..<this.mesh_.njCell_ {
+                    for i in 0..<this.mesh_.niCell_ {
+                        const idxWithGhost = meshIndex2FVMindex(i, j);
+                        const idx = this.mesh_.iiCell(i, j);
+
+                        this.rhorho_[idxWithGhost] = Density[j, i];
+                        this.uu_[idxWithGhost] = VelocityX[j, i];
+                        this.vv_[idxWithGhost] = VelocityY[j, i];
+                        this.pp_[idxWithGhost] = Pressure[j, i];
+                        this.EE_[idxWithGhost] = Energy[j, i];
+
+                        this.W0_[idxWithGhost] = this.rhorho_[idxWithGhost];
+                        this.W1_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.uu_[idxWithGhost];
+                        this.W2_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.vv_[idxWithGhost];
+                        this.W3_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.EE_[idxWithGhost];
+                    }
+                }
+                writeln("Initial solution loaded.");
+            }
+        }
+
+        else {
+            forall j in 0..<this.mesh_.njCell_ {
+                for i in 0..<this.mesh_.niCell_ {
+                    const idxWithGhost = meshIndex2FVMindex(i, j);
+                    const cellType = this.cellTypesWithGhosts_[idxWithGhost];
+                    if cellType != -1 { // not solid
+                        this.W0_[idxWithGhost] = this.inputs_.RHO_INF_;
+                        this.W1_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.U_INF_;
+                        this.W2_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.V_INF_;
+                        this.W3_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.E_INF_;
+
+                        this.rhorho_[idxWithGhost] = this.inputs_.RHO_INF_;
+                        this.uu_[idxWithGhost] = this.inputs_.U_INF_;
+                        this.vv_[idxWithGhost] = this.inputs_.V_INF_;
+                        this.EE_[idxWithGhost] = this.inputs_.E_INF_;
+                        this.pp_[idxWithGhost] = this.inputs_.P_INF_;
+                    }
+                }
+            }
+        }
+
+        
+
+        this.ghostCells_rho_bi_ = this.inputs_.RHO_INF_;
+        this.ghostCells_u_bi_ = this.inputs_.U_INF_;
+        this.ghostCells_v_bi_ = this.inputs_.V_INF_;
+        this.ghostCells_E_bi_ = this.inputs_.E_INF_;
+        this.ghostCells_p_bi_ = this.inputs_.P_INF_;
 
         // find outflow and inflow faces
         var outflowFacesI = new list(int);
@@ -295,6 +322,11 @@ class spatialDiscretization {
 
             this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
             this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
+            
+            const vel_normal = u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i];
+            const vel_tangential = -u_mirror * this.mesh_.ghostCells_ny_bi_[i] + v_mirror * this.mesh_.ghostCells_nx_bi_[i];
+            
+
             this.rhorho_[ghostCell] = rho_mirror;
             this.pp_[ghostCell] = p_mirror;
             this.EE_[ghostCell] = p_mirror / ((this.inputs_.GAMMA_ - 1.0)*rho_mirror) + 0.5 * (this.uu_[ghostCell]**2 + this.vv_[ghostCell]**2);

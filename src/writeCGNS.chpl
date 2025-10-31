@@ -123,9 +123,7 @@ class cgnsFlowWriter_c {
             cgnsFile_.addFieldSolution(glbBaseId, zoneId, solIDcc, name, values);
         }
 
-
-        // cgnsFile_.close();
-        // writeln("CGNS file written to ", cgnsFileName_);
+        writeln("Cell-centered CGNS file written to ", cgnsFileName_);
     }
 
     proc writeWallToCGNS(meshData_ : meshData, dom: domain(1), fieldMap: map(string, [dom] real(64))) {
@@ -153,6 +151,9 @@ class cgnsFlowWriter_c {
         }
 
         writeln("CGNS file written to ", cgnsFileName_);
+
+
+        cgnsFile_.close();
     }
 
     proc writeConvergenceHistory(time: list(real(64)),
@@ -186,6 +187,7 @@ class cgnsFlowWriter_c {
 
         cgnsFile_.writeGlobalConvergenceHistory("ConvergenceHistory", iterationsArray, names, convData);
 
+        writeln("Convergence history written to ", cgnsFileName_);
 
     }
 }
