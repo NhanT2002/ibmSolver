@@ -1,6 +1,7 @@
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sp
 
 def readCGNS(filename) :
     # Read CGNS file
@@ -17,6 +18,7 @@ def readCGNS(filename) :
         v = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/VelocityY/ data'][:]
         nx = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/nx/ data'][:]
         ny = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/ny/ data'][:]
+        curvature = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/curvature/ data'][:]
 
         x_ghost = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/x_ghost/ data'][:]
         y_ghost = f['WallBase/ZoneWall/WALL_FLOW_SOLUTION_NC/y_ghost/ data'][:]
@@ -59,39 +61,63 @@ def readCGNS(filename) :
         data['v_ghost'] = v_ghost
         data['p_ghost'] = p_ghost
         data['rho_ghost'] = rho_ghost
+        data['curvature'] = curvature
 
     return data
 
-data = readCGNS('../output/output_57.cgns')
+data = readCGNS('../output/output_86.cgns')
 
 naca0012 = np.loadtxt('../pre/naca0012.dat')
 
-plt.figure()
-plt.axis('equal')
-plt.plot(naca0012[0, :], naca0012[1, :])
-plt.plot(data['x'], data['y'], ".")
-plt.plot(data['x_mirror'], data['y_mirror'], "x")
-plt.plot(data['x_ghost'], data['y_ghost'], ".")
-# plt.quiver(data['x'], data['y'], data['u'], data['v'])
-# plt.quiver(data['x'], data['y'], data['nx'], data['ny'], color='r', scale=20)
-# plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], color='g')
-# plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
-# plot tangent
-plt.quiver(data['x'], data['y'], -data['ny'], data['nx'])
-plt.xlim([0.0, 0.1])
+# Calculate curvature
+x = sp.symbols('x')
+t = 0.12
+f = 5 * t * (0.2969 * sp.sqrt(x) - 0.1260 * x - 0.3516 * x**2 + 0.2843 * x**3 - 0.1015 * x**4)
+f_prime = sp.diff(f, x)
+f_double_prime = sp.diff(f_prime, x)
+curvature = sp.simplify(sp.Abs(f_double_prime) / (1 + f_prime**2)**(3/2))
+print("Curvature expression:")
+sp.pprint(curvature)
+
+# Evaluate curvature at discrete points
+x_vals = np.linspace(0, 1, 1001)
+curvature_func = sp.lambdify(x, curvature, 'numpy')
+curvature_vals = curvature_func(x_vals)
 
 plt.figure()
-plt.plot(data['x'], data['Cp'], "o")
+plt.semilogy(x_vals, curvature_vals, label='Curvature of NACA 0012')
+plt.semilogy(data['x'], data['curvature'], 'ro', markersize=2, label='Computed Curvature from CGNS')
 plt.xlabel('x')
-plt.ylabel('Cp')
-plt.gca().invert_yaxis()
+plt.ylabel('Curvature')
+plt.title('Curvature Distribution along NACA 0012 Airfoil')
+plt.legend()
+plt.grid()
 plt.show()
 
-plt.figure()
-plt.semilogy(data['it'], data['res0'], label='Res0')
-plt.xlabel('Iteration')
-plt.ylabel('Residuals')
-plt.legend()
+# plt.figure()
+# plt.axis('equal')
+# plt.plot(naca0012[0, :], naca0012[1, :])
+# plt.plot(data['x'], data['y'], ".")
+# plt.plot(data['x_mirror'], data['y_mirror'], "x")
+# plt.plot(data['x_ghost'], data['y_ghost'], ".")
+# plt.quiver(data['x'], data['y'], data['u'], data['v'])
+# # plt.quiver(data['x'], data['y'], data['nx'], data['ny'], color='r', scale=20)
+# plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], color='g')
+# plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
+# plt.xlim([0.0, 0.1])
+
+# plt.figure()
+# plt.plot(data['x'], data['Cp'], "o")
+# plt.xlabel('x')
+# plt.ylabel('Cp')
+# plt.gca().invert_yaxis()
+# plt.show()
+
+# plt.figure()
+# plt.semilogy(data['it'], data['res0'], label='Res0')
+# plt.xlabel('Iteration')
+# plt.ylabel('Residuals')
+# plt.legend()
 
 # plt.figure()
 # plt.semilogy(data['time'], data['res0'], label='Res0')

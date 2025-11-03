@@ -76,6 +76,10 @@ class cgnsFlowWriter_c {
         fields["phiCells"] = meshData_.phiCells_;
         fields["cellTypes"] = meshData_.cellTypes_;
         fields["cellVolumes"] = meshData_.cellVolumes_;
+        fields["gradPhiX"] = meshData_.gradPhiX_;
+        fields["gradPhiY"] = meshData_.gradPhiY_;
+        fields["gradPhiZ"] = meshData_.gradPhiZ_;
+        fields["curvature"] = meshData_.curvature_;
         for name in fields.keys() {
             var values = try! fields[name];
             cgnsFile_.addFieldSolution(glbBaseId, zoneId, solIDcc, name, values);
@@ -113,6 +117,10 @@ class cgnsFlowWriter_c {
         fields["phiCells"] = meshData_.phiCells_;
         fields["cellTypes"] = meshData_.cellTypes_;
         fields["cellVolumes"] = meshData_.cellVolumes_;
+        fields["gradPhiX"] = meshData_.gradPhiX_;
+        fields["gradPhiY"] = meshData_.gradPhiY_;
+        fields["gradPhiZ"] = meshData_.gradPhiZ_;
+        fields["curvature"] = meshData_.curvature_;
         for name in fields.keys() {
             var values = try! fields[name];
             cgnsFile_.addFieldSolution(glbBaseId, zoneId, solIDcc, name, values);

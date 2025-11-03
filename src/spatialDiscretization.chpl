@@ -1049,6 +1049,7 @@ class spatialDiscretization {
         wall_fields["Energy"] = this.ghostCells_E_bi_;
         wall_fields["nx"] = this.mesh_.ghostCells_nx_bi_;
         wall_fields["ny"] = this.mesh_.ghostCells_ny_bi_;
+        wall_fields["curvature"] = this.mesh_.ghostCells_curvature_bi_;
         wall_fields["Mach"] = wall_mach;
         wall_fields["Cp"] = wall_cp;
         wall_fields["x_ghost"] = ghostCx;

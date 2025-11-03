@@ -17,6 +17,7 @@ proc main() {
     var mesh = new shared meshData(X, Y, Z);
     mesh.computeMetrics();
     mesh.levelSet(X_geo, Y_geo);
+    mesh.levelSetGradient();
     mesh.computeIBnormals();
 
     var FVM = new shared spatialDiscretization(mesh, inputs);
