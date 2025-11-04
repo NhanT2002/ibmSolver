@@ -49,6 +49,9 @@ record inputsConfig {
     var U_INF_ : real(64) = MACH_ * C_INF_* cos(ALPHA_ * (pi / 180.0));
     var V_INF_ : real(64) = MACH_ * C_INF_* sin(ALPHA_ * (pi / 180.0));
     var E_INF_ : real(64) = P_INF_ / ((GAMMA_ - 1.0) * RHO_INF_) + 0.5 * (U_INF_**2 + V_INF_**2);
+    var Q_INF_ : real(64) = 0.5 * RHO_INF_ * (U_INF_**2 + V_INF_**2);
+    var S_REF_ : real(64) = 1.0; // Reference area
+    var C_REF_ : real(64) = 1.0; // Reference chord
 
     proc init() {
         writeln("MESH_FILENAME = ", MESH_FILENAME);

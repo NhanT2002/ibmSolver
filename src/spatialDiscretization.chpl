@@ -15,6 +15,9 @@ class spatialDiscretization {
     var mesh_ : shared meshData;
     var inputs_ : inputsConfig;
 
+    var one_over_gamma_ : real(64);
+    var two_gamma_over_gamma_minus_one_ : real(64);
+
     var cell_dom_with_ghosts_ : domain(1) = {1..0};
     var nCellWithGhosts_ : int;
     var niCellWithGhosts_ : int;
@@ -106,6 +109,9 @@ class spatialDiscretization {
         this.time_ = new stopwatch();
         this.mesh_ = Mesh;
         this.inputs_ = inputs;
+
+        this.one_over_gamma_ = 1.0 / this.inputs_.GAMMA_;
+        this.two_gamma_over_gamma_minus_one_ = 2.0 * this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ - 1.0);
 
         // Define domains
         const niCell_ = mesh_.niCell_;
@@ -313,23 +319,33 @@ class spatialDiscretization {
             const E_mirror = kls.interpolate(kls.E_fieldValues_);
             const p_mirror = kls.interpolate(kls.p_fieldValues_);
 
-            // if (i==0) {
-            //     writeln("Ghost cell ", ghostCell, ": rho_mirror=", rho_mirror, " u_mirror=", u_mirror, " v_mirror=", v_mirror, " E_mirror=", E_mirror, " p_mirror=", p_mirror);
-            //     writeln("  nearestCells = ", this.mesh_.ghostCellsNearestFluidCells_[i, 0..]);
-            //     writeln("  u_fieldValues_ = ", kls.u_fieldValues_);
-            //     writeln("  v_fieldValues_ = ", kls.v_fieldValues_);
+            // if this.mesh_.ghostCells_x_bi_[i] > 0.5 {
+            //     this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
+            //     this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
+            //     this.pp_[ghostCell] = p_mirror;
+            //     this.rhorho_[ghostCell] = rho_mirror;
             // }
+            // else {
+                var tx = u_mirror - (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
+                var ty = v_mirror - (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
+                const magnitude_tangential = sqrt(tx**2 + ty**2);
+                tx = tx / magnitude_tangential;
+                ty = ty / magnitude_tangential;
+                const vel_normal = u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i];
+                const vel_tangential = u_mirror * tx + v_mirror * ty;
 
-            this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
-            this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
+                const delta_n = this.mesh_.ghostCells_delta_n_[i];
+                this.pp_[ghostCell] = p_mirror - rho_mirror*vel_tangential**2*this.mesh_.ghostCells_curvature_bi_[i]*delta_n;
+                this.rhorho_[ghostCell] = rho_mirror*(this.pp_[ghostCell]/p_mirror)**this.one_over_gamma_;
+                
+                const vel_normal_ghost = -vel_normal;
+                const vel_tangential_ghost = sqrt(vel_tangential**2 + this.two_gamma_over_gamma_minus_one_*(p_mirror/rho_mirror - this.pp_[ghostCell]/this.rhorho_[ghostCell]));
+                
+                this.uu_[ghostCell] = vel_normal_ghost * this.mesh_.ghostCells_nx_bi_[i] + vel_tangential_ghost * tx;
+                this.vv_[ghostCell] = vel_normal_ghost * this.mesh_.ghostCells_ny_bi_[i] + vel_tangential_ghost * ty;
+            // }
             
-            const vel_normal = u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i];
-            const vel_tangential = -u_mirror * this.mesh_.ghostCells_ny_bi_[i] + v_mirror * this.mesh_.ghostCells_nx_bi_[i];
-            
-
-            this.rhorho_[ghostCell] = rho_mirror;
-            this.pp_[ghostCell] = p_mirror;
-            this.EE_[ghostCell] = p_mirror / ((this.inputs_.GAMMA_ - 1.0)*rho_mirror) + 0.5 * (this.uu_[ghostCell]**2 + this.vv_[ghostCell]**2);
+            this.EE_[ghostCell] = this.pp_[ghostCell] / ((this.inputs_.GAMMA_ - 1.0)*this.rhorho_[ghostCell]) + 0.5 * (this.uu_[ghostCell]**2 + this.vv_[ghostCell]**2);
 
             this.W0_[ghostCell] = this.rhorho_[ghostCell];
             this.W1_[ghostCell] = this.rhorho_[ghostCell] * this.uu_[ghostCell];
@@ -530,6 +546,12 @@ class spatialDiscretization {
                 this.vv_[leftCellWithGhost] = this.W2_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
                 this.EE_[leftCellWithGhost] = this.W3_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
                 this.pp_[leftCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[leftCellWithGhost] * (this.EE_[leftCellWithGhost] - 0.5 * (this.uu_[leftCellWithGhost]**2 + this.vv_[leftCellWithGhost]**2) );
+
+                const rightCell = this.mesh_.iiCell(i, j);
+                if rightCell == 11308 {
+                    writeln("uu inflow leftCell: ", this.uu_[leftCellWithGhost]);
+                    writeln("vv inflow leftCell: ", this.vv_[leftCellWithGhost]);
+                }
             }
 
             if this.inputs_.ALPHA_ > 0.0 {
@@ -910,6 +932,9 @@ class spatialDiscretization {
             Fy += avg_p[i] * avg_ny[i] * avg_area[i];
             M += avg_p[i] * ((this.inputs_.X_REF_ - avg_x[i]) * avg_ny[i] - (avg_y[i] - this.inputs_.Y_REF_) * avg_nx[i]) * avg_area[i];
         }
+        Fx /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_);
+        Fy /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_);
+        M /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_ * this.inputs_.C_REF_);
 
         const Cl = Fy*cos(this.inputs_.ALPHA_ * pi / 180.0) - Fx*sin(this.inputs_.ALPHA_ * pi / 180.0);
         const Cd = Fx*cos(this.inputs_.ALPHA_ * pi / 180.0) + Fy*sin(this.inputs_.ALPHA_ * pi / 180.0);

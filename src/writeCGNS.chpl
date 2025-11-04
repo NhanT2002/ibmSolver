@@ -79,6 +79,7 @@ class cgnsFlowWriter_c {
         fields["gradPhiX"] = meshData_.gradPhiX_;
         fields["gradPhiY"] = meshData_.gradPhiY_;
         fields["gradPhiZ"] = meshData_.gradPhiZ_;
+        fields["QPhi"] = meshData_.QPhi_;
         fields["curvature"] = meshData_.curvature_;
         for name in fields.keys() {
             var values = try! fields[name];
@@ -120,6 +121,7 @@ class cgnsFlowWriter_c {
         fields["gradPhiX"] = meshData_.gradPhiX_;
         fields["gradPhiY"] = meshData_.gradPhiY_;
         fields["gradPhiZ"] = meshData_.gradPhiZ_;
+        fields["QPhi"] = meshData_.QPhi_;
         fields["curvature"] = meshData_.curvature_;
         for name in fields.keys() {
             var values = try! fields[name];

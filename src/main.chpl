@@ -14,10 +14,9 @@ proc main() {
     var (X, Y, Z) = readMesh(inputs.MESH_FILENAME_);
     var (X_geo, Y_geo, Z_geo) = readGeometry(inputs.GEOMETRY_FILENAME_);
 
-    var mesh = new shared meshData(X, Y, Z);
+    var mesh = new shared meshData(inputs, X, Y, Z);
     mesh.computeMetrics();
     mesh.levelSet(X_geo, Y_geo);
-    mesh.levelSetGradient();
     mesh.computeIBnormals();
 
     var FVM = new shared spatialDiscretization(mesh, inputs);
