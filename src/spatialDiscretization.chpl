@@ -530,7 +530,7 @@ class spatialDiscretization {
                 const leftCellWithGhost = rightCellWithGhost - 1;
 
                 const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[rightCellWithGhost] / this.rhorho_[rightCellWithGhost] );
-                const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[rightCellWithGhost] - this.rhorho_[rightCellWithGhost]*c0*(this.inputs_.U_INF_ - this.uu_[rightCellWithGhost]) );
+                const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[rightCellWithGhost] - this.rhorho_[rightCellWithGhost]*c0*(this.uu_[rightCellWithGhost] - this.inputs_.U_INF_) );
                 const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
                 const u_b = this.inputs_.U_INF_ + (this.inputs_.P_INF_ - p_b) / (this.rhorho_[rightCellWithGhost] * c0); // note the plus sign here because nx is towards left
                 const v_b = this.inputs_.V_INF_;
@@ -546,12 +546,6 @@ class spatialDiscretization {
                 this.vv_[leftCellWithGhost] = this.W2_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
                 this.EE_[leftCellWithGhost] = this.W3_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
                 this.pp_[leftCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[leftCellWithGhost] * (this.EE_[leftCellWithGhost] - 0.5 * (this.uu_[leftCellWithGhost]**2 + this.vv_[leftCellWithGhost]**2) );
-
-                const rightCell = this.mesh_.iiCell(i, j);
-                if rightCell == 11308 {
-                    writeln("uu inflow leftCell: ", this.uu_[leftCellWithGhost]);
-                    writeln("vv inflow leftCell: ", this.vv_[leftCellWithGhost]);
-                }
             }
 
             if this.inputs_.ALPHA_ > 0.0 {

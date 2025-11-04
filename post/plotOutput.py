@@ -65,7 +65,7 @@ def readCGNS(filename) :
 
     return data
 
-data = readCGNS('../output/output_22.cgns')
+data = readCGNS('../output/output_64.cgns')
 
 # data = readCGNS('../output/mesh_0-01/M05_A125.cgns')
 
@@ -106,7 +106,7 @@ plt.quiver(data['x'], data['y'], data['u'], data['v'])
 # plt.quiver(data['x'], data['y'], data['nx'], data['ny'], color='r', scale=20)
 plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], color='g')
 plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
-plt.xlim([-0.5, 0.5])
+# plt.xlim([-0.5, 0.5])
 
 plt.figure()
 plt.plot(data['x'], data['Cp'], "o")
@@ -116,11 +116,17 @@ plt.gca().invert_yaxis()
 plt.grid()
 plt.show()
 
-# plt.figure()
-# plt.semilogy(data['it'], data['res0'], label='Res0')
-# plt.xlabel('Iteration')
-# plt.ylabel('Residuals')
-# plt.legend()
+plt.figure()
+plt.semilogy(data['it'], data['res0'], label='Res0')
+plt.xlabel('Iteration')
+plt.ylabel('Residuals')
+plt.legend()
+
+plt.figure()
+plt.plot(data['it'], data['cl'], label='Cl')
+plt.xlabel('Iteration')
+plt.ylabel('Cl')
+plt.legend()
 
 # plt.figure()
 # plt.semilogy(data['time'], data['res0'], label='Res0')

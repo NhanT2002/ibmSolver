@@ -56,9 +56,13 @@ class temporalDiscretization {
     }
 
     proc compute_dt() {
+        this.dtCells_ = 1.0e20;
         forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                    continue;
+                }
                 const lambdaI = this.spatialDisc_.LambdaI_[cellIndexFVM];
                 const lambdaJ = this.spatialDisc_.LambdaJ_[cellIndexFVM];
                 const volume = this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM];
@@ -66,6 +70,9 @@ class temporalDiscretization {
 
             }
         }
+        // const min_dt = min reduce this.dtCells_;
+        // writeln("Min dt: ", min_dt);
+        // this.dtCells_ = min_dt;
     }
 
     proc RKstep() {
