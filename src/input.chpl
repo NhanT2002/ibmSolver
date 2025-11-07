@@ -1,4 +1,5 @@
 use Math;
+config const FLOW : string;
 
 config const MESH_FILENAME : string;
 config const GEOMETRY_FILENAME : string;
@@ -9,6 +10,11 @@ config const INITIAL_SOLUTION : string = "";
 
 config const X_REF : real(64);
 config const Y_REF : real(64);
+
+config const X_LE : real(64);
+config const Y_LE : real(64);
+config const X_TE : real(64);
+config const Y_TE : real(64);
 
 config const MACH : real(64);
 config const ALPHA : real(64);
@@ -22,6 +28,8 @@ config const CONV_TOL : real(64);
 config const RESIDUAL_SMOOTHING : bool;
 
 record inputsConfig {
+    var FLOW_: string = FLOW;
+
     var MESH_FILENAME_: string = MESH_FILENAME;
     var GEOMETRY_FILENAME_: string = GEOMETRY_FILENAME;
     var OUTPUT_FILENAME_: string = OUTPUT_FILENAME;
@@ -31,6 +39,11 @@ record inputsConfig {
 
     var X_REF_ : real(64) = X_REF;
     var Y_REF_ : real(64) = Y_REF;
+
+    var X_LE_ : real(64) = X_LE;
+    var Y_LE_ : real(64) = Y_LE;
+    var X_TE_ : real(64) = X_TE;
+    var Y_TE_ : real(64) = Y_TE;
 
     var MACH_ : real(64) = MACH;
     var ALPHA_ : real(64) = ALPHA;
@@ -54,6 +67,8 @@ record inputsConfig {
     var C_REF_ : real(64) = 1.0; // Reference chord
 
     proc init() {
+        writeln("----- Input Configuration -----");
+        writeln("FLOW = ", FLOW);
         writeln("MESH_FILENAME = ", MESH_FILENAME);
         writeln("GEOMETRY_FILENAME = ", GEOMETRY_FILENAME);
         writeln("OUTPUT_FILENAME = ", OUTPUT_FILENAME);

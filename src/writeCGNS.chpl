@@ -166,6 +166,32 @@ class cgnsFlowWriter_c {
         cgnsFile_.close();
     }
 
+    proc writeLEandTEtoCGNS(const ref meshData_ : meshData, dom: domain(1), fieldMap: map(string, [dom] real(64))) {
+        const wallBaseName = "LE_TE_Base";
+        const cellDim: c_int = 1;      // 1D elements (lines)
+        const physDim: c_int = 2;      // 2D space (x, y)
+        const wallBaseId = cgnsFile_.createBase(wallBaseName, cellDim, physDim);
+
+        const zoneName : string = "Zone_LE_TE";
+        var size : [0..2] cgsize_t;
+        size[0] = 2;
+        size[1] = 1;
+        size[2] = 0;
+
+        zoneId = cgnsFile_.createZone(wallBaseId, zoneName, size, Structured);
+
+        cgnsFile_.writeGridCoordinates(wallBaseId, zoneId, meshData_.x_LE_TE_coords_, meshData_.y_LE_TE_coords_, meshData_.z_LE_TE_coords_);
+
+        solIDcc = cgnsFile_.addNodeCenteredSolution(wallBaseId, zoneId, "LE_TE_FLOW_SOLUTION_NC");
+
+        for name in fieldMap.keys() {
+            var values = try! fieldMap[name];
+            cgnsFile_.addFieldSolution(wallBaseId, zoneId, solIDcc, name, values);
+        }
+
+        writeln("LE and TE CGNS file written to ", cgnsFileName_);
+    }
+
     proc writeConvergenceHistory(time: list(real(64)),
                                  iterations: list(int),
                                  res0: list(real(64)),

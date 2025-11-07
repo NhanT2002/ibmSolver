@@ -112,6 +112,15 @@ class meshData {
     var X_geo_ : [geometry_domain_] real(64);
     var Y_geo_ : [geometry_domain_] real(64);
     var Z_geo_ : [geometry_domain_] real(64);
+    var x_LE_ : real(64);
+    var y_LE_ : real(64);
+    var z_LE_ : real(64);
+    var x_TE_ : real(64);
+    var y_TE_ : real(64);
+    var z_TE_ : real(64);
+    var x_LE_TE_coords_ : [0..1] real(64);
+    var y_LE_TE_coords_ : [0..1] real(64);
+    var z_LE_TE_coords_ : [0..1] real(64);
 
     var domain_ : domain(2) = {1..0, 1..0};
     var X_ : [domain_] real(64);
@@ -175,6 +184,13 @@ class meshData {
     var ghostCellsNearestFluidCellsCx_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellsNearestFluidCellsCy_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellkls_ : [ghostCellDom_] owned kls?;
+
+    var LEkls_ : owned kls?;
+    var nearestCellLEIJ_ : [0..<nkls_] (int, int);
+    var nearestCellLE_ : [0..<nkls_] int;
+    var TEkls_ : owned kls?;
+    var nearestCellTEIJ_ : [0..<nkls_] (int, int);
+    var nearestCellTE_ : [0..<nkls_] int;
 
 
     proc init(inputs: inputsConfig, X : [] real(64), Y : [] real(64), Z : [] real(64)) {
@@ -314,10 +330,32 @@ class meshData {
         return i + j * this.niCell_;
     }
 
+    proc find(arr: [] real, value: real): int {
+        for i in 0..<arr.size {
+            if arr[i] == value {
+                return i;
+            }
+        }
+        halt("Value not found in array");
+    }
+
     proc levelSet(X_geo : [] real(64), Y_geo : [] real(64)) {
         this.geometry_domain_ = {0..<X_geo.size};
         this.X_geo_ = X_geo;
         this.Y_geo_ = Y_geo;
+        this.x_LE_ = this.inputs_.X_LE_;
+        this.y_LE_ = this.inputs_.Y_LE_;
+        this.x_TE_ = this.inputs_.X_TE_;
+        this.y_TE_ = this.inputs_.Y_TE_;
+
+        this.x_LE_TE_coords_[0] = this.x_LE_;
+        this.y_LE_TE_coords_[0] = this.y_LE_;
+        this.x_LE_TE_coords_[1] = this.x_TE_;
+        this.y_LE_TE_coords_[1] = this.y_TE_;
+
+        writeln("Leading edge at (", this.x_LE_, ", ", this.y_LE_, ")");
+        writeln("Trailing edge at (", this.x_TE_, ", ", this.y_TE_, ")");
+
         // build list of segments (A->B) with wrap around
         record Seg {
             var Ax: real(64);
@@ -439,7 +477,6 @@ class meshData {
             this.ghostCellIJ_[i][1] = ghostCellList[i][2];
             this.ghostCellIndices_[i] = iiCell(ghostCellIJ_[i][0], ghostCellIJ_[i][1]);
         }
-        writeln("ghostCellIndices_ ", this.ghostCellIndices_);
 
         this.ghostCellsNearestFluidCellsCx_dom_ = {0..<ghostCellDom_.size, 0..<this.nkls_};
 
@@ -748,7 +785,47 @@ class meshData {
             const curvature = klsInstance.interpolate(stencilCellsCurvature);
             this.ghostCells_curvature_bi_[i] = curvature;
         }
-        
+
+
+
+        // find nearet fluid cell to the LE
+        var dists = new list((real(64), int));
+        for cell in 0..<nCell_ {
+            const dx = xCells_[cell] - this.x_LE_;
+            const dy = yCells_[cell] - this.y_LE_;
+            const dist = sqrt(dx*dx + dy*dy);
+            dists.pushBack((dist, cell));
+        }
+        sort(dists);
+        var stencilCellsCx : [0..<this.nkls_] real(64);
+        var stencilCellsCy : [0..<this.nkls_] real(64);
+        for i in 0..<this.nkls_ {
+            stencilCellsCx[i] = xCells_[dists[i][1]];
+            stencilCellsCy[i] = yCells_[dists[i][1]];
+            this.nearestCellLEIJ_[i] = (dists[i][1] % niCell_, dists[i][1] / niCell_);
+            this.nearestCellLE_[i] = dists[i][1];
+        }
+        this.LEkls_ = new owned kls(stencilCellsCx, stencilCellsCy, this.x_LE_, this.y_LE_);
+        this.LEkls_!.computeCoefficients();
+
+        // find nearet fluid cell to the TE
+        dists.clear();
+        for cell in 0..<nCell_ {
+            const dx = xCells_[cell] - this.x_TE_;
+            const dy = yCells_[cell] - this.y_TE_;
+            const dist = sqrt(dx*dx + dy*dy);
+            dists.pushBack((dist, cell));
+        }
+        sort(dists);
+        for i in 0..<this.nkls_ {
+            stencilCellsCx[i] = xCells_[dists[i][1]];
+            stencilCellsCy[i] = yCells_[dists[i][1]];
+            this.nearestCellTEIJ_[i] = (dists[i][1] % niCell_, dists[i][1] / niCell_);
+            this.nearestCellTE_[i] = dists[i][1];
+        }
+        this.TEkls_ = new owned kls(stencilCellsCx, stencilCellsCy, this.x_TE_, this.y_TE_);
+        this.TEkls_!.computeCoefficients();
+
     }
 
 }

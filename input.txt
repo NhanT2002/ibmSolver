@@ -1,20 +1,28 @@
-MESH_FILENAME=pre/cartesian_mesh_0-05.cgns
-GEOMETRY_FILENAME=pre/circle_geometry.cgns
-OUTPUT_FILENAME=output/output.cgns
-CGNS_OUTPUT_FREQ=50
+FLOW=euler       # euler || fullPotential
 
-#INITIAL_SOLUTION=output/mesh_0-01/M08_A125.cgns
+MESH_FILENAME=pre/cylinder/cartesian_mesh_20.cgns
+GEOMETRY_FILENAME=pre/cylinder_geometry.cgns
+OUTPUT_FILENAME=output/output.cgns
+CGNS_OUTPUT_FREQ=100000
+
+#INITIAL_SOLUTION=output/convergence_cylinder/output_160.cgns
 
 X_REF=0.5   #CHANGE WHEN USING CIRCLE
 Y_REF=0.0
 
-MACH=0.5
+X_LE=0.0
+Y_LE=0.0
+X_TE=1.0
+Y_LE=0.0
+
+
+MACH=0.38
 ALPHA=0.0
 GAMMA=1.4
-K2=0.5
+K2=0.0
 K4=0.015625
 
 CFL=3.6
-IT_MAX=10000
+IT_MAX=100000
 CONV_TOL=1e-11
 RESIDUAL_SMOOTHING=true

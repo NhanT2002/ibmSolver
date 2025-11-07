@@ -3,6 +3,7 @@ import input.inputsConfig;
 use Time;
 use mesh;
 use spatialDiscretization;
+use fullPotentialSpatialDiscretization;
 use temporalDiscretization;
 
 proc main() {
@@ -19,12 +20,17 @@ proc main() {
     mesh.levelSet(X_geo, Y_geo);
     mesh.computeIBnormals();
 
-    var FVM = new shared spatialDiscretization(mesh, inputs);
-    FVM.initializeFlowField();
-    FVM.run_odd();
+    if inputs.FLOW_ == "fullPotential" {
+        var FVM = new shared fullPotentialSpatialDiscretization(mesh, inputs);
+    } 
+    else {
+        var FVM = new shared spatialDiscretization(mesh, inputs);
+        FVM.initializeFlowField();
+        FVM.run_odd();
 
-    var solver = new shared temporalDiscretization(FVM, inputs);
-    solver.solve();
+        var solver = new shared temporalDiscretization(FVM, inputs);
+        solver.solve();
+    }
 
     time.stop();
     writeln("Runtime: ", time.elapsed(), " seconds");

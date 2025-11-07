@@ -1,4 +1,4 @@
-module spatialDiscretization 
+module fullPotentialSpatialDiscretization 
 {
 use mesh;
 use writeCGNS;
@@ -10,7 +10,7 @@ use Math;
 use Sort;
 use Map;
 
-class spatialDiscretization {
+class fullPotentialSpatialDiscretization {
     var time_: stopwatch;
     var mesh_ : shared meshData;
     var inputs_ : inputsConfig;
@@ -1147,4 +1147,4 @@ class spatialDiscretization {
 
 
 
-}
+} // module fullPotentialSpatialDiscretization
