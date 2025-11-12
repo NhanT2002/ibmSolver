@@ -31,8 +31,8 @@ def readCGNS(filename) :
         time = f['Base/GlobalConvergenceHistory/Time/ data'][:]
         res0 = f['Base/GlobalConvergenceHistory/Res0/ data'][:]
         res1 = f['Base/GlobalConvergenceHistory/Res1/ data'][:]
-        res2 = f['Base/GlobalConvergenceHistory/Res2/ data'][:]
-        res3 = f['Base/GlobalConvergenceHistory/Res3/ data'][:]
+        # res2 = f['Base/GlobalConvergenceHistory/Res2/ data'][:]
+        # res3 = f['Base/GlobalConvergenceHistory/Res3/ data'][:]
         cl = f['Base/GlobalConvergenceHistory/Cl/ data'][:]
         cd = f['Base/GlobalConvergenceHistory/Cd/ data'][:]
         cm = f['Base/GlobalConvergenceHistory/Cm/ data'][:]
@@ -48,8 +48,8 @@ def readCGNS(filename) :
         data['time'] = time
         data['res0'] = res0
         data['res1'] = res1
-        data['res2'] = res2
-        data['res3'] = res3
+        # data['res2'] = res2
+        # data['res3'] = res3
         data['cl'] = cl
         data['cd'] = cd
         data['cm'] = cm
@@ -80,7 +80,7 @@ def readGeom(filename) :
 
     return data
 
-data = readCGNS('../output/output_29.cgns')
+data = readCGNS('../output/output_42.cgns')
 
 # data = readCGNS('../output/mesh_0-01/M05_A125.cgns')
 
@@ -124,13 +124,13 @@ plt.quiver(data['x_ghost'], data['y_ghost'], data['u_ghost'], data['v_ghost'], c
 plt.quiver(data['x_mirror'], data['y_mirror'], 2*data['u'] - data['u_ghost'], 2*data['v'] - data['v_ghost'], color='orange')
 # plt.xlim([-0.5, 0.5])
 
-# plt.figure()
-# plt.plot(data['x'], data['Cp'], "o")
-# plt.xlabel('x')
-# plt.ylabel('Cp')
-# plt.gca().invert_yaxis()
-# plt.grid()
-# plt.show()
+plt.figure()
+plt.plot(data['x'], data['Cp'], "o-")
+plt.xlabel('x')
+plt.ylabel('Cp')
+plt.gca().invert_yaxis()
+plt.grid()
+plt.show()
 
 # plt.figure()
 # plt.semilogy(data['it'], data['res0'], label='Res0')

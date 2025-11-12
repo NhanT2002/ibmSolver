@@ -226,6 +226,37 @@ class cgnsFlowWriter_c {
         writeln("Convergence history written to ", cgnsFileName_);
 
     }
+
+    proc writeConvergenceHistory(time: list(real(64)),
+                                 iterations: list(int),
+                                 res0: list(real(64)),
+                                 res1: list(real(64)),
+                                 cls: list(real(64)),
+                                 cds: list(real(64)),
+                                 cms: list(real(64))) {
+        const nMetrics = 7;
+        const maxIter = iterations.size;
+
+        var iterationsArray: [0..<maxIter] int;
+        forall i in 0..<maxIter {
+            iterationsArray[i] = iterations[i];
+        }
+
+        var convData: [0..<nMetrics, 0..<maxIter] real(64);
+        convData[0, ..] = time;
+        convData[1, ..] = res0;
+        convData[2, ..] = res1;
+        convData[4, ..] = cls;
+        convData[5, ..] = cds;
+        convData[6, ..] = cms;
+
+        var names = ["Time", "Res0", "Res1", "Cl", "Cd", "Cm"];
+
+        cgnsFile_.writeGlobalConvergenceHistory("ConvergenceHistory", iterationsArray, names, convData);
+
+        writeln("Convergence history written to ", cgnsFileName_);
+
+    }
 }
 
 

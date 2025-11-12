@@ -13,6 +13,7 @@ class kls {
     var cy_ : [stencil_dom_] real(64);
 
     var rho_fieldValues_ : [stencil_dom_] real(64);
+    var phi_fieldValues_ : [stencil_dom_] real(64);
     var u_fieldValues_ : [stencil_dom_] real(64);
     var v_fieldValues_ : [stencil_dom_] real(64);
     var E_fieldValues_ : [stencil_dom_] real(64);

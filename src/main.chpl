@@ -3,8 +3,9 @@ import input.inputsConfig;
 use Time;
 use mesh;
 use spatialDiscretization;
-use fullPotentialSpatialDiscretization;
 use temporalDiscretization;
+use fullPotentialSpatialDiscretization;
+use fullPotentialTemporalDiscretization;
 
 proc main() {
     var time: stopwatch;
@@ -22,6 +23,11 @@ proc main() {
 
     if inputs.FLOW_ == "fullPotential" {
         var FVM = new shared fullPotentialSpatialDiscretization(mesh, inputs);
+        FVM.initializeFlowField();
+        FVM.run();
+
+        var solver = new shared fullPotentialTemporalDiscretization(FVM, inputs);
+        solver.solve();
     } 
     else {
         var FVM = new shared spatialDiscretization(mesh, inputs);

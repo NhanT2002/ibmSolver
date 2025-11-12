@@ -4,7 +4,7 @@ import Transform.PyTree as T
 import Geom.PyTree as D
 import Converter.Internal as I
 
-cellSizes = [10, 20, 40, 80, 160]
+cellSizes = [1, 10, 20, 40, 80, 160]
 for cellsize in cellSizes:
     print(f'Generating mesh with cell size = {cellsize} ...')
     size = 1 / cellsize

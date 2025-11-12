@@ -56,6 +56,7 @@ record inputsConfig {
     var CONV_TOL_ : real(64) = CONV_TOL;
     var RESIDUAL_SMOOTHING_ : bool = RESIDUAL_SMOOTHING;
 
+    
     var RHO_INF_ : real(64) = 1.0;
     var P_INF_ : real(64) = 1.0;
     var C_INF_ : real(64) = sqrt(GAMMA_ * P_INF_ / RHO_INF_);
@@ -90,5 +91,29 @@ record inputsConfig {
         writeln("IT_MAX = ", IT_MAX);
         writeln("CONV_TOL = ", CONV_TOL);
         writeln("RESIDUAL_SMOOTHING = ", RESIDUAL_SMOOTHING);
+
+
+
+        if FLOW == "euler" {
+            RHO_INF_ = 1.0;
+            P_INF_ = 1.0;
+            C_INF_ = sqrt(GAMMA_ * P_INF_ / RHO_INF_);
+            U_INF_ = MACH_ * C_INF_* cos(ALPHA_ * (pi / 180.0));
+            V_INF_ = MACH_ * C_INF_* sin(ALPHA_ * (pi / 180.0));
+            E_INF_ = P_INF_ / ((GAMMA_ - 1.0) * RHO_INF_) + 0.5 * (U_INF_**2 + V_INF_**2);
+            Q_INF_ = 0.5 * RHO_INF_ * (U_INF_**2 + V_INF_**2);
+            S_REF_ = 1.0; // Reference area
+            C_REF_ = 1.0; // Reference chord
+        }
+        else {
+            RHO_INF_ = 1.0;
+            P_INF_ = RHO_INF_**GAMMA_ / (GAMMA_ * MACH_**2);
+            C_INF_ = sqrt((RHO_INF_**(GAMMA_ - 1.0)) / MACH_**2);
+            U_INF_ = MACH_ * C_INF_* cos(ALPHA_ * (pi / 180.0));
+            V_INF_ = MACH_ * C_INF_* sin(ALPHA_ * (pi / 180.0));
+            Q_INF_ = 0.5 * RHO_INF_ * (U_INF_**2 + V_INF_**2);
+            S_REF_ = 1.0; // Reference area
+            C_REF_ = 1.0; // Reference chord
+        }
     }
 }

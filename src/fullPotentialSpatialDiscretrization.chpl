@@ -27,15 +27,10 @@ class fullPotentialSpatialDiscretization {
     var cellTypesWithGhosts_ : [cell_dom_with_ghosts_] int;
     var cellVolumesWithGhosts_ : [cell_dom_with_ghosts_] real(64);
 
-    var W0_ : [cell_dom_with_ghosts_] real(64);
-    var W1_ : [cell_dom_with_ghosts_] real(64);
-    var W2_ : [cell_dom_with_ghosts_] real(64);
-    var W3_ : [cell_dom_with_ghosts_] real(64);
-
     var rhorho_ : [cell_dom_with_ghosts_] real(64);
+    var phiphi_ : [cell_dom_with_ghosts_] real(64);
     var uu_ : [cell_dom_with_ghosts_] real(64);
     var vv_ : [cell_dom_with_ghosts_] real(64);
-    var EE_ : [cell_dom_with_ghosts_] real(64);
     var pp_ : [cell_dom_with_ghosts_] real(64);
 
     var Rc0_ : [cell_dom_with_ghosts_] real(64);
@@ -62,16 +57,16 @@ class fullPotentialSpatialDiscretization {
     var ghostCellsNearestFluidCellsWithGhost_ : [ghostCellsNearestFluidCellsWithGhost_dom_] int;
 
     var ghostCells_rho_bi_ : [ghostCellIndices_dom_] real(64);
+    var ghostCells_phi_bi_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_u_bi_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_v_bi_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_w_bi_ : [ghostCellIndices_dom_] real(64);
-    var ghostCells_E_bi_ : [ghostCellIndices_dom_] real(64);
-    var ghostCells_p_bi_ : [ghostCellIndices_dom_] real(64);
+    var ghostCells_cp_bi_ : [ghostCellIndices_dom_] real(64);
 
     var ghostCells_rho_mirror_ : [ghostCellIndices_dom_] real(64);
+    var ghostCells_phi_mirror_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_u_mirror_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_v_mirror_ : [ghostCellIndices_dom_] real(64);
-    var ghostCells_E_mirror_ : [ghostCellIndices_dom_] real(64);
     var ghostCells_p_mirror_ : [ghostCellIndices_dom_] real(64);
 
     var face_dom_ : domain(1) = {1..0};
@@ -129,39 +124,67 @@ class fullPotentialSpatialDiscretization {
         writeln("  njCell_ = ", njCell_);
         writeln("  niCellWithGhosts_ = ", this.niCellWithGhosts_);
         writeln("  njCellWithGhosts_ = ", this.njCellWithGhosts_);
+        writeln("  MACH_ = ", this.inputs_.MACH_);
+        writeln("  ALPHA_ = ", this.inputs_.ALPHA_);
+        writeln("  U_INF_ = ", this.inputs_.U_INF_);
+        writeln("  V_INF_ = ", this.inputs_.V_INF_);
     }
 
     proc initializeFlowField() {
 
-        // // Map to mesh cells with ghosts
-        // this.xCellsWithGhosts_ = 1e100;
-        // this.yCellsWithGhosts_ = 1e100;
-        // forall j in 0..<this.mesh_.njCell_ {
-        //     for i in 0..<this.mesh_.niCell_ {
-        //         const ii = i + 2;
-        //         const jj = j + 2;
-        //         const idxWithGhost = ii + jj * this.niCellWithGhosts_;
-        //         const idx = this.mesh_.iiCell(i, j);
-        //         this.xCellsWithGhosts_[idxWithGhost] = this.mesh_.xCells_[idx];
-        //         this.yCellsWithGhosts_[idxWithGhost] = this.mesh_.yCells_[idx];
-        //     }
-        // }
-        // forall i in 2..<this.niCellWithGhosts_-2 {
-        //     this.xCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        //     this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        // }
-        // forall i in 2..<this.niCellWithGhosts_-2 {
-        //     this.xCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        //     this.yCellsWithGhosts_[i] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-        // }
-        // forall i in 2..<this.niCellWithGhosts_-2 {
-        //     this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        //     this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        // }
-        // forall i in 2..<this.niCellWithGhosts_-2 {
-        //     this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        //     this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-        // }
+        // Map to mesh cells with ghosts
+        this.xCellsWithGhosts_ = 0;
+        this.yCellsWithGhosts_ = 0;
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const ii = i + 2;
+                const jj = j + 2;
+                const idxWithGhost = ii + jj * this.niCellWithGhosts_;
+                const idx = this.mesh_.iiCell(i, j);
+                this.xCellsWithGhosts_[idxWithGhost] = this.mesh_.xCells_[idx];
+                this.yCellsWithGhosts_[idxWithGhost] = this.mesh_.yCells_[idx];
+            }
+        }
+        forall i in 2..<this.niCellWithGhosts_-2 {
+            const face = i-2;
+            this.xCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
+            this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+        }
+        forall i in 2..<this.niCellWithGhosts_-2 {
+            const face = i-2;
+            this.xCellsWithGhosts_[i] = this.xCellsWithGhosts_[i+this.niCellWithGhosts_];
+            this.yCellsWithGhosts_[i] = this.yCellsWithGhosts_[i+this.niCellWithGhosts_] - abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+        }
+        forall i in 2..<this.niCellWithGhosts_-2 {
+            const face = i-2 + (this.mesh_.njCell_)* (this.mesh_.niCell_);
+            this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] + abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+        }
+        forall i in 2..<this.niCellWithGhosts_-2 {
+            const face = i-2 + (this.mesh_.njCell_)* (this.mesh_.niCell_);
+            this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
+            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] + abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+        }
+        forall j in 2..<this.njCellWithGhosts_-2 {
+            const face = (j-2) * (this.mesh_.niCell_+1);
+            this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.yCellsWithGhosts_[1 + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[2 + j * this.niCellWithGhosts_];
+        }
+        forall j in 2..<this.njCellWithGhosts_-2 {
+            const face = (j-2) * (this.mesh_.niCell_+1);
+            this.xCellsWithGhosts_[0 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] - abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.yCellsWithGhosts_[0 + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[1 + j * this.niCellWithGhosts_];
+        }
+        forall j in 2..<this.njCellWithGhosts_-2 {
+            const face = this.mesh_.niCell_ + (j-2) * (this.mesh_.niCell_+1);
+            this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] + abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.yCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_];
+        }
+        forall j in 2..<this.njCellWithGhosts_-2 {
+            const face = this.mesh_.niCell_ + (j-2) * (this.mesh_.niCell_+1);
+            this.xCellsWithGhosts_[(this.niCellWithGhosts_-1) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] + abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.yCellsWithGhosts_[(this.niCellWithGhosts_-1) + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_];
+        }
 
         forall (id,(i, j)) in zip(this.mesh_.ghostCellIJ_.domain, this.mesh_.ghostCellIJ_) {
             const idxWithGhost = i+2 + (j+2) * this.niCellWithGhosts_;
@@ -210,24 +233,7 @@ class fullPotentialSpatialDiscretization {
                 halt("Error: Initial solution size does not match number of cells with ghosts.");
             }
             else {
-                forall j in 0..<this.mesh_.njCell_ {
-                    for i in 0..<this.mesh_.niCell_ {
-                        const idxWithGhost = meshIndex2FVMindex(i, j);
-                        const idx = this.mesh_.iiCell(i, j);
-
-                        this.rhorho_[idxWithGhost] = Density[j, i];
-                        this.uu_[idxWithGhost] = VelocityX[j, i];
-                        this.vv_[idxWithGhost] = VelocityY[j, i];
-                        this.pp_[idxWithGhost] = Pressure[j, i];
-                        this.EE_[idxWithGhost] = Energy[j, i];
-
-                        this.W0_[idxWithGhost] = this.rhorho_[idxWithGhost];
-                        this.W1_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.uu_[idxWithGhost];
-                        this.W2_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.vv_[idxWithGhost];
-                        this.W3_[idxWithGhost] = this.rhorho_[idxWithGhost] * this.EE_[idxWithGhost];
-                    }
-                }
-                writeln("Initial solution loaded.");
+                writeln("Initial solution not loaded TO BE IMPLEMENTED.");
             }
         }
 
@@ -237,15 +243,10 @@ class fullPotentialSpatialDiscretization {
                     const idxWithGhost = meshIndex2FVMindex(i, j);
                     const cellType = this.cellTypesWithGhosts_[idxWithGhost];
                     if cellType != -1 { // not solid
-                        this.W0_[idxWithGhost] = this.inputs_.RHO_INF_;
-                        this.W1_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.U_INF_;
-                        this.W2_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.V_INF_;
-                        this.W3_[idxWithGhost] = this.inputs_.RHO_INF_ * this.inputs_.E_INF_;
-
                         this.rhorho_[idxWithGhost] = this.inputs_.RHO_INF_;
+                        this.phiphi_[idxWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[idxWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[idxWithGhost];
                         this.uu_[idxWithGhost] = this.inputs_.U_INF_;
                         this.vv_[idxWithGhost] = this.inputs_.V_INF_;
-                        this.EE_[idxWithGhost] = this.inputs_.E_INF_;
                         this.pp_[idxWithGhost] = this.inputs_.P_INF_;
                     }
                 }
@@ -257,8 +258,7 @@ class fullPotentialSpatialDiscretization {
         this.ghostCells_rho_bi_ = this.inputs_.RHO_INF_;
         this.ghostCells_u_bi_ = this.inputs_.U_INF_;
         this.ghostCells_v_bi_ = this.inputs_.V_INF_;
-        this.ghostCells_E_bi_ = this.inputs_.E_INF_;
-        this.ghostCells_p_bi_ = this.inputs_.P_INF_;
+        this.ghostCells_cp_bi_ = 0.0;
 
         // find outflow and inflow faces
         var outflowFacesI = new list(int);
@@ -323,196 +323,47 @@ class fullPotentialSpatialDiscretization {
             var kls = this.mesh_.ghostCellkls_[i]!.borrow();
             for (j, nearestCell) in zip(0..<4, this.ghostCellsNearestFluidCellsWithGhost_[i, 0..]) { // MAYBE GENERALIZE LATER
                 kls.rho_fieldValues_[j] = this.rhorho_[nearestCell];
+                kls.phi_fieldValues_[j] = this.phiphi_[nearestCell];
                 kls.u_fieldValues_[j] = this.uu_[nearestCell];
                 kls.v_fieldValues_[j] = this.vv_[nearestCell];
-                kls.E_fieldValues_[j] = this.EE_[nearestCell];
-                kls.p_fieldValues_[j] = this.pp_[nearestCell];
             }
 
             const rho_mirror = kls.interpolate(kls.rho_fieldValues_);
+            const phi_mirror = kls.interpolate(kls.phi_fieldValues_);
             const u_mirror = kls.interpolate(kls.u_fieldValues_);
             const v_mirror = kls.interpolate(kls.v_fieldValues_);
-            const E_mirror = kls.interpolate(kls.E_fieldValues_);
-            const p_mirror = kls.interpolate(kls.p_fieldValues_);
 
             // if this.mesh_.ghostCells_x_bi_[i] > 0.5 {
-            //     this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
-            //     this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
+                this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
+                this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
             //     this.pp_[ghostCell] = p_mirror;
             //     this.rhorho_[ghostCell] = rho_mirror;
             // }
             // else {
-                var tx = u_mirror - (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
-                var ty = v_mirror - (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
-                const magnitude_tangential = sqrt(tx**2 + ty**2);
-                tx = tx / magnitude_tangential;
-                ty = ty / magnitude_tangential;
-                const vel_normal = u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i];
-                const vel_tangential = u_mirror * tx + v_mirror * ty;
-
-                const delta_n = this.mesh_.ghostCells_delta_n_[i];
-                this.pp_[ghostCell] = p_mirror - rho_mirror*vel_tangential**2*this.mesh_.ghostCells_curvature_bi_[i]*delta_n;
-                this.rhorho_[ghostCell] = rho_mirror*(this.pp_[ghostCell]/p_mirror)**this.one_over_gamma_;
-                
-                const vel_normal_ghost = -vel_normal;
-                const vel_tangential_ghost = sqrt(vel_tangential**2 + this.two_gamma_over_gamma_minus_one_*(p_mirror/rho_mirror - this.pp_[ghostCell]/this.rhorho_[ghostCell]));
-                
-                this.uu_[ghostCell] = vel_normal_ghost * this.mesh_.ghostCells_nx_bi_[i] + vel_tangential_ghost * tx;
-                this.vv_[ghostCell] = vel_normal_ghost * this.mesh_.ghostCells_ny_bi_[i] + vel_tangential_ghost * ty;
+                this.rhorho_[ghostCell] = rho_mirror;
+                this.phiphi_[ghostCell] = phi_mirror;
             // }
-            
-            this.EE_[ghostCell] = this.pp_[ghostCell] / ((this.inputs_.GAMMA_ - 1.0)*this.rhorho_[ghostCell]) + 0.5 * (this.uu_[ghostCell]**2 + this.vv_[ghostCell]**2);
-
-            this.W0_[ghostCell] = this.rhorho_[ghostCell];
-            this.W1_[ghostCell] = this.rhorho_[ghostCell] * this.uu_[ghostCell];
-            this.W2_[ghostCell] = this.rhorho_[ghostCell] * this.vv_[ghostCell];
-            this.W3_[ghostCell] = this.rhorho_[ghostCell] * this.EE_[ghostCell];
 
             this.ghostCells_rho_mirror_[i] = rho_mirror;
+            this.ghostCells_phi_mirror_[i] = phi_mirror;
             this.ghostCells_u_mirror_[i] = u_mirror;
             this.ghostCells_v_mirror_[i] = v_mirror;
-            this.ghostCells_E_mirror_[i] = E_mirror;
-            this.ghostCells_p_mirror_[i] = p_mirror;
         }
         forall i in 0..<this.ghostCellWallIndicesWithGhost_.size {
             const ghostCell = this.ghostCellWallIndicesWithGhost_[i];
             this.ghostCells_rho_bi_[i] = 0.5 * (this.rhorho_[ghostCell] + this.ghostCells_rho_mirror_[i]);
+            this.ghostCells_phi_bi_[i] = 0.5 * (this.phiphi_[ghostCell] + this.ghostCells_phi_mirror_[i]);
             this.ghostCells_u_bi_[i] = 0.5 * (this.uu_[ghostCell] + this.ghostCells_u_mirror_[i]);
             this.ghostCells_v_bi_[i] = 0.5 * (this.vv_[ghostCell] + this.ghostCells_v_mirror_[i]);
-            this.ghostCells_E_bi_[i] = 0.5 * (this.EE_[ghostCell] + this.ghostCells_E_mirror_[i]);
-            this.ghostCells_p_bi_[i] = 0.5 * (this.pp_[ghostCell] + this.ghostCells_p_mirror_[i]);
+            const cp_ghost = (this.rhorho_[ghostCell]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2 * this.inputs_.P_INF_) - 1.0) / (this.inputs_.GAMMA_/2*this.inputs_.MACH_**2);
+            const cp_mirror = (this.ghostCells_rho_mirror_[i]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2 * this.inputs_.P_INF_) - 1.0) / (this.inputs_.GAMMA_/2*this.inputs_.MACH_**2);
+            this.ghostCells_cp_bi_[i] = 0.5 * (cp_ghost + cp_mirror);
         }
 
 
         // Farfield
         if this.inputs_.MACH_ >= 1.0 {
-            forall face in this.outflowFacesI_ {
-                const (i, j) = this.mesh_.IfacesIJ_[face];
-                const leftCellWithGhost = meshIndex2FVMindex(i-1, j);
-                const rightCellWithGhost = leftCellWithGhost + 1;
-                this.W0_[rightCellWithGhost] = this.W0_[leftCellWithGhost];
-                this.W1_[rightCellWithGhost] = this.W1_[leftCellWithGhost];
-                this.W2_[rightCellWithGhost] = this.W2_[leftCellWithGhost];
-                this.W3_[rightCellWithGhost] = this.W3_[leftCellWithGhost];
-
-                this.rhorho_[rightCellWithGhost] = this.W0_[rightCellWithGhost];
-                this.uu_[rightCellWithGhost] = this.W1_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.vv_[rightCellWithGhost] = this.W2_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.EE_[rightCellWithGhost] = this.W3_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.pp_[rightCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[rightCellWithGhost] * (this.EE_[rightCellWithGhost] - 0.5 * (this.uu_[rightCellWithGhost]**2 + this.vv_[rightCellWithGhost]**2) );
-            }
-            forall face in this.inflowFacesI_ {
-                const (i, j) = this.mesh_.IfacesIJ_[face];
-                const rightCellWithGhost = meshIndex2FVMindex(i, j);
-                const leftCellWithGhost = rightCellWithGhost - 1;
-                this.W0_[leftCellWithGhost] = 2*this.inputs_.RHO_INF_ - this.W0_[rightCellWithGhost];
-                this.W1_[leftCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.U_INF_ - this.W1_[rightCellWithGhost];
-                this.W2_[leftCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.V_INF_ - this.W2_[rightCellWithGhost];
-                this.W3_[leftCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.E_INF_ - this.W3_[rightCellWithGhost];
-
-                this.rhorho_[leftCellWithGhost] = this.W0_[leftCellWithGhost];
-                this.uu_[leftCellWithGhost] = this.W1_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.vv_[leftCellWithGhost] = this.W2_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.EE_[leftCellWithGhost] = this.W3_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.pp_[leftCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[leftCellWithGhost] * (this.EE_[leftCellWithGhost] - 0.5 * (this.uu_[leftCellWithGhost]**2 + this.vv_[leftCellWithGhost]**2) );
-            }
-            if this.inputs_.ALPHA_ > 0.0 {
-                forall face in this.outflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, j-1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
-                    this.W0_[topCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = this.W3_[bottomCellWithGhost];
-
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
-                forall face in this.inflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const topCellWithGhost = meshIndex2FVMindex(i, j);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-                    this.W0_[bottomCellWithGhost] = 2*this.inputs_.RHO_INF_ - this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.U_INF_ - this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.V_INF_ - this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.E_INF_ - this.W3_[topCellWithGhost];
-
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
-            }
-            else if this.inputs_.ALPHA_ < 0.0 {
-                forall face in this.outflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, j-1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
-                    this.W0_[bottomCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = this.W3_[topCellWithGhost];
-
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
-                forall face in this.inflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const topCellWithGhost = meshIndex2FVMindex(i, j);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-                    this.W0_[topCellWithGhost] = 2*this.inputs_.RHO_INF_ - this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.U_INF_ - this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.V_INF_ - this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = 2*this.inputs_.RHO_INF_ * this.inputs_.E_INF_ - this.W3_[bottomCellWithGhost];
-
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
-            }
-            else { // ALPHA == 0.0, bottom and top boundaries are outflow
-                forall i in 0..<this.mesh_.niCell_ { // bottom boundary
-                    const topCellWithGhost = meshIndex2FVMindex(i, 0);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-
-                    this.W0_[bottomCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = this.W3_[topCellWithGhost];
-
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
-
-                for i in 0..<this.mesh_.niCell_ { // top boundary
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, this.mesh_.njCell_ - 1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
-
-                    this.W0_[topCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = this.W3_[bottomCellWithGhost];
-
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
-            }
+            // Supersonic farfield: TO BE IMPLEMENTED
         }
 
         else {
@@ -521,23 +372,16 @@ class fullPotentialSpatialDiscretization {
                 const leftCellWithGhost = meshIndex2FVMindex(i-1, j);
                 const rightCellWithGhost = leftCellWithGhost + 1;
 
-                const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[leftCellWithGhost] / this.rhorho_[leftCellWithGhost] );
-                const p_b = this.inputs_.P_INF_;
-                const rho_b = this.rhorho_[leftCellWithGhost] + (p_b - this.pp_[leftCellWithGhost]) / (c0**2);
-                const u_b = this.uu_[leftCellWithGhost] + (this.pp_[leftCellWithGhost] - p_b) / (this.rhorho_[leftCellWithGhost] * c0);
-                const v_b = this.vv_[leftCellWithGhost];
-                const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
+                // const rho_b = this.inputs_.RHO_INF_;
+                // const phi_b = this.inputs_.U_INF_ * this.mesh_.IfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.IfacesCy_[face];
 
-                this.W0_[rightCellWithGhost] = 2*rho_b - this.W0_[leftCellWithGhost];
-                this.W1_[rightCellWithGhost] = 2*rho_b*u_b - this.W1_[leftCellWithGhost];
-                this.W2_[rightCellWithGhost] = 2*rho_b*v_b - this.W2_[leftCellWithGhost];
-                this.W3_[rightCellWithGhost] = 2*rho_b*E_b - this.W3_[leftCellWithGhost];
+                // this.W0_[rightCellWithGhost] = 2*rho_b - this.W0_[leftCellWithGhost];
+                // this.W1_[rightCellWithGhost] = 2*phi_b - this.W1_[leftCellWithGhost];
 
-                this.rhorho_[rightCellWithGhost] = this.W0_[rightCellWithGhost];
-                this.uu_[rightCellWithGhost] = this.W1_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.vv_[rightCellWithGhost] = this.W2_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.EE_[rightCellWithGhost] = this.W3_[rightCellWithGhost] / this.W0_[rightCellWithGhost];
-                this.pp_[rightCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[rightCellWithGhost] * (this.EE_[rightCellWithGhost] - 0.5 * (this.uu_[rightCellWithGhost]**2 + this.vv_[rightCellWithGhost]**2) );
+                this.uu_[rightCellWithGhost] = this.inputs_.U_INF_;
+                this.vv_[rightCellWithGhost] = this.inputs_.V_INF_;
+                this.rhorho_[rightCellWithGhost] = this.inputs_.RHO_INF_;
+                this.phiphi_[rightCellWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[rightCellWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[rightCellWithGhost];
             }
 
             forall face in this.inflowFacesI_ {
@@ -545,168 +389,51 @@ class fullPotentialSpatialDiscretization {
                 const rightCellWithGhost = meshIndex2FVMindex(i, j);
                 const leftCellWithGhost = rightCellWithGhost - 1;
 
-                const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[rightCellWithGhost] / this.rhorho_[rightCellWithGhost] );
-                const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[rightCellWithGhost] - this.rhorho_[rightCellWithGhost]*c0*(this.uu_[rightCellWithGhost] - this.inputs_.U_INF_) );
-                const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
-                const u_b = this.inputs_.U_INF_ + (this.inputs_.P_INF_ - p_b) / (this.rhorho_[rightCellWithGhost] * c0); // note the plus sign here because nx is towards left
-                const v_b = this.inputs_.V_INF_;
-                const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
+                // const rho_b = this.inputs_.RHO_INF_;
+                // const phi_b = this.inputs_.U_INF_ * this.mesh_.IfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.IfacesCy_[face];
 
-                this.W0_[leftCellWithGhost] = 2*rho_b - this.W0_[rightCellWithGhost];
-                this.W1_[leftCellWithGhost] = 2*rho_b*u_b - this.W1_[rightCellWithGhost];
-                this.W2_[leftCellWithGhost] = 2*rho_b*v_b - this.W2_[rightCellWithGhost];
-                this.W3_[leftCellWithGhost] = 2*rho_b*E_b - this.W3_[rightCellWithGhost];
+                // this.W0_[leftCellWithGhost] = 2*rho_b - this.W0_[rightCellWithGhost];
+                // this.W1_[leftCellWithGhost] = 2*phi_b - this.W1_[rightCellWithGhost];
 
-                this.rhorho_[leftCellWithGhost] = this.W0_[leftCellWithGhost];
-                this.uu_[leftCellWithGhost] = this.W1_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.vv_[leftCellWithGhost] = this.W2_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.EE_[leftCellWithGhost] = this.W3_[leftCellWithGhost] / this.W0_[leftCellWithGhost];
-                this.pp_[leftCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[leftCellWithGhost] * (this.EE_[leftCellWithGhost] - 0.5 * (this.uu_[leftCellWithGhost]**2 + this.vv_[leftCellWithGhost]**2) );
+                this.uu_[leftCellWithGhost] = this.inputs_.U_INF_;
+                this.vv_[leftCellWithGhost] = this.inputs_.V_INF_;
+                this.rhorho_[leftCellWithGhost] = this.inputs_.RHO_INF_;
+                this.phiphi_[leftCellWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[leftCellWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[leftCellWithGhost];
             }
 
-            if this.inputs_.ALPHA_ > 0.0 {
-                forall face in this.outflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, j-1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
+            forall i in 0..<this.mesh_.niCell_ { // bottom boundary
+                const face = i;
+                const topCellWithGhost = meshIndex2FVMindex(i, 0);
+                const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
 
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[bottomCellWithGhost] / this.rhorho_[bottomCellWithGhost] );
-                    const p_b = this.inputs_.P_INF_;
-                    const rho_b = this.rhorho_[bottomCellWithGhost] + (p_b - this.pp_[bottomCellWithGhost]) / (c0**2);
-                    const u_b = this.uu_[bottomCellWithGhost];
-                    const v_b = this.vv_[bottomCellWithGhost] + (this.pp_[bottomCellWithGhost] - p_b) / (this.rhorho_[bottomCellWithGhost] * c0);
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
+                // const rho_b = this.inputs_.RHO_INF_;
+                // const phi_b = this.inputs_.U_INF_ * this.mesh_.JfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.JfacesCy_[face];
 
-                    this.W0_[topCellWithGhost] = 2*rho_b - this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = 2*rho_b * u_b - this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = 2*rho_b * v_b - this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = 2*rho_b * E_b - this.W3_[bottomCellWithGhost];
+                // this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
+                // this.W1_[bottomCellWithGhost] = 2*phi_b - this.W1_[topCellWithGhost];
 
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
-                forall face in this.inflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const topCellWithGhost = meshIndex2FVMindex(i, j);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[topCellWithGhost] / this.rhorho_[topCellWithGhost] );
-                    const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[topCellWithGhost] - this.rhorho_[topCellWithGhost]*c0*(this.vv_[topCellWithGhost]-this.inputs_.V_INF_) ); // note the minus sign in -(vInf - vv) because ny is down
-                    const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
-                    const u_b = this.inputs_.U_INF_;
-                    const v_b = this.inputs_.V_INF_ + (this.inputs_.P_INF_ - p_b) / (this.rhorho_[topCellWithGhost] * c0); // note the plus sign here because ny is down
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
-
-                    this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = 2*rho_b * u_b - this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = 2*rho_b * v_b - this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = 2*rho_b * E_b - this.W3_[topCellWithGhost];
-
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
+                this.uu_[bottomCellWithGhost] = this.inputs_.U_INF_;
+                this.vv_[bottomCellWithGhost] = this.inputs_.V_INF_;
+                this.rhorho_[bottomCellWithGhost] = this.inputs_.RHO_INF_;
+                this.phiphi_[bottomCellWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[bottomCellWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[bottomCellWithGhost];
+                
             }
 
-            else if this.inputs_.ALPHA_ < 0.0 {
-                forall face in this.outflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, j-1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
+            for i in 0..<this.mesh_.niCell_ { // top boundary
+                const face = i + this.mesh_.niCell_ * this.mesh_.njCell_;
+                const bottomCellWithGhost = meshIndex2FVMindex(i, this.mesh_.njCell_ - 1);
+                const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
 
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[topCellWithGhost] / this.rhorho_[topCellWithGhost] );
-                    const p_b = this.inputs_.P_INF_;
-                    const rho_b = this.rhorho_[topCellWithGhost] + (p_b - this.pp_[topCellWithGhost]) / (c0**2);
-                    const u_b = this.uu_[topCellWithGhost];
-                    const v_b = this.vv_[topCellWithGhost] - (this.pp_[topCellWithGhost] - p_b) / (this.rhorho_[topCellWithGhost] * c0); // note the minus sign here because ny is down
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
+                // const rho_b = this.inputs_.RHO_INF_;
+                // const phi_b = this.inputs_.U_INF_ * this.mesh_.JfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.JfacesCy_[face];
 
-                    this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = 2*rho_b * u_b - this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = 2*rho_b * v_b - this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = 2*rho_b * E_b - this.W3_[topCellWithGhost];
+                // this.W0_[topCellWithGhost] = 2*rho_b - this.W0_[bottomCellWithGhost];
+                // this.W1_[topCellWithGhost] = 2*phi_b - this.W1_[bottomCellWithGhost];
 
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
-                forall face in this.inflowFacesJ_ {
-                    const (i, j) = this.mesh_.JfacesIJ_[face];
-                    const topCellWithGhost = meshIndex2FVMindex(i, j);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[bottomCellWithGhost] / this.rhorho_[bottomCellWithGhost] );
-                    const p_b = 0.5 * ( this.inputs_.P_INF_ + this.pp_[bottomCellWithGhost] - this.rhorho_[bottomCellWithGhost]*c0*(this.inputs_.V_INF_ - this.vv_[bottomCellWithGhost]) ); // note the plus sign in +(vInf - vv) because ny is up
-                    const rho_b = this.inputs_.RHO_INF_ + (p_b - this.inputs_.P_INF_) / (c0**2);
-                    const u_b = this.inputs_.U_INF_;
-                    const v_b = this.inputs_.V_INF_ - (this.inputs_.P_INF_ - p_b) / (this.rhorho_[bottomCellWithGhost] * c0); // note the minus sign here because ny is up
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
-
-                    this.W0_[topCellWithGhost] = 2*rho_b - this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = 2*rho_b * u_b - this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = 2*rho_b * v_b - this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = 2*rho_b * E_b - this.W3_[bottomCellWithGhost];
-
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
-            }
-            else { // ALPHA == 0.0, bottom and top boundaries are outflow
-                forall i in 0..<this.mesh_.niCell_ { // bottom boundary
-                    const topCellWithGhost = meshIndex2FVMindex(i, 0);
-                    const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
-
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[topCellWithGhost] / this.rhorho_[topCellWithGhost] );
-                    const p_b = this.inputs_.P_INF_;
-                    const rho_b = this.rhorho_[topCellWithGhost] + (p_b - this.pp_[topCellWithGhost]) / (c0**2);
-                    const u_b = this.uu_[topCellWithGhost];
-                    const v_b = this.vv_[topCellWithGhost] - (this.pp_[topCellWithGhost] - p_b) / (this.rhorho_[topCellWithGhost] * c0); // note the minus sign here because ny is down
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
-
-                    this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
-                    this.W1_[bottomCellWithGhost] = 2*rho_b * u_b - this.W1_[topCellWithGhost];
-                    this.W2_[bottomCellWithGhost] = 2*rho_b * v_b - this.W2_[topCellWithGhost];
-                    this.W3_[bottomCellWithGhost] = 2*rho_b * E_b - this.W3_[topCellWithGhost];
-
-                    this.rhorho_[bottomCellWithGhost] = this.W0_[bottomCellWithGhost];
-                    this.uu_[bottomCellWithGhost] = this.W1_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.vv_[bottomCellWithGhost] = this.W2_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.EE_[bottomCellWithGhost] = this.W3_[bottomCellWithGhost] / this.W0_[bottomCellWithGhost];
-                    this.pp_[bottomCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[bottomCellWithGhost] * (this.EE_[bottomCellWithGhost] - 0.5 * (this.uu_[bottomCellWithGhost]**2 + this.vv_[bottomCellWithGhost]**2) );
-                }
-
-                for i in 0..<this.mesh_.niCell_ { // top boundary
-                    const bottomCellWithGhost = meshIndex2FVMindex(i, this.mesh_.njCell_ - 1);
-                    const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
-
-                    const c0 = sqrt( this.inputs_.GAMMA_ * this.pp_[bottomCellWithGhost] / this.rhorho_[bottomCellWithGhost] );
-                    const p_b = this.inputs_.P_INF_;
-                    const rho_b = this.rhorho_[bottomCellWithGhost] + (p_b - this.pp_[bottomCellWithGhost]) / (c0**2);
-                    const u_b = this.uu_[bottomCellWithGhost];
-                    const v_b = this.vv_[bottomCellWithGhost] + (this.pp_[bottomCellWithGhost] - p_b) / (this.rhorho_[bottomCellWithGhost] * c0);
-                    const E_b = p_b / ( (this.inputs_.GAMMA_ - 1.0) * rho_b ) + 0.5 * (u_b**2 + v_b**2);
-
-                    this.W0_[topCellWithGhost] = 2*rho_b - this.W0_[bottomCellWithGhost];
-                    this.W1_[topCellWithGhost] = 2*rho_b * u_b - this.W1_[bottomCellWithGhost];
-                    this.W2_[topCellWithGhost] = 2*rho_b * v_b - this.W2_[bottomCellWithGhost];
-                    this.W3_[topCellWithGhost] = 2*rho_b * E_b - this.W3_[bottomCellWithGhost];
-
-                    this.rhorho_[topCellWithGhost] = this.W0_[topCellWithGhost];
-                    this.uu_[topCellWithGhost] = this.W1_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.vv_[topCellWithGhost] = this.W2_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.EE_[topCellWithGhost] = this.W3_[topCellWithGhost] / this.W0_[topCellWithGhost];
-                    this.pp_[topCellWithGhost] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[topCellWithGhost] * (this.EE_[topCellWithGhost] - 0.5 * (this.uu_[topCellWithGhost]**2 + this.vv_[topCellWithGhost]**2) );
-                }
+                this.uu_[topCellWithGhost] = this.inputs_.U_INF_;
+                this.vv_[topCellWithGhost] = this.inputs_.V_INF_;
+                this.rhorho_[topCellWithGhost] = this.inputs_.RHO_INF_;
+                this.phiphi_[topCellWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[topCellWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[topCellWithGhost];
             }
             
         }
@@ -717,11 +444,35 @@ class fullPotentialSpatialDiscretization {
             if this.cellTypesWithGhosts_[cell] != 1 {
                 continue;
             }
-            this.rhorho_[cell] = this.W0_[cell];
-            this.uu_[cell] = this.W1_[cell] / this.W0_[cell];
-            this.vv_[cell] = this.W2_[cell] / this.W0_[cell];
-            this.EE_[cell] = this.W3_[cell] / this.W0_[cell];
-            this.pp_[cell] = (this.inputs_.GAMMA_ - 1.0) * this.rhorho_[cell] * (this.EE_[cell] - 0.5 * (this.uu_[cell]**2 + this.vv_[cell]**2) );
+            const leftCell = cell - 1;
+            const rightCell = cell + 1;
+            const bottomCell = cell - this.niCellWithGhosts_;
+            const topCell = cell + this.niCellWithGhosts_;
+
+            const h_im1 = this.xCellsWithGhosts_[leftCell] - this.xCellsWithGhosts_[cell];
+            const h_ip1 = this.xCellsWithGhosts_[rightCell] - this.xCellsWithGhosts_[cell];
+            const h_jm1 = this.yCellsWithGhosts_[bottomCell] - this.yCellsWithGhosts_[cell];
+            const h_jp1 = this.yCellsWithGhosts_[topCell] - this.yCellsWithGhosts_[cell];
+
+            const m_i = -h_ip1 / (h_im1**2 - h_ip1*h_im1);
+            const n_i = -h_im1 / (h_ip1**2 - h_ip1*h_im1);
+            const s_i = -(m_i + n_i);
+
+            const m_j = -h_jp1 / (h_jm1**2 - h_jp1*h_jm1);
+            const n_j = -h_jm1 / (h_jp1**2 - h_jp1*h_jm1);
+            const s_j = -(m_j + n_j);
+
+            this.uu_[cell] = m_i * this.phiphi_[leftCell] + s_i * this.phiphi_[cell] + n_i * this.phiphi_[rightCell];
+            this.vv_[cell] = m_j * this.phiphi_[bottomCell] + s_j * this.phiphi_[cell] + n_j * this.phiphi_[topCell];
+
+            // if cell == 254 {
+            //     writeln("Cell ", cell, ": u = ", this.uu_[cell], ", v = ", this.vv_[cell], ", Rc0 = ", this.Rc0_[cell], ", Rc1 = ", this.Rc1_[cell]);
+            //     writeln("  phi_left = ", this.phiphi_[leftCell], ", phi_center = ", this.phiphi_[cell], ", phi_right = ", this.phiphi_[rightCell]);
+            //     writeln("  h_im1 = ", h_im1, ", h_ip1 = ", h_ip1);
+            //     writeln("  m_i = ", m_i, ", n_i = ", n_i, ", s_i = ", s_i);
+            //     writeln("  h_jm1 = ", h_jm1, ", h_jp1 = ", h_jp1);
+            //     writeln("  m_j = ", m_j, ", n_j = ", n_j, ", s_j = ", s_j);
+            // }
         }
     }
 
@@ -735,20 +486,12 @@ class fullPotentialSpatialDiscretization {
                 continue;
             }
 
-            const avg_W0 = 0.5 * (this.W0_[leftCell] + this.W0_[rightCell]);
-            const avg_W1 = 0.5 * (this.W1_[leftCell] + this.W1_[rightCell]);
-            const avg_W2 = 0.5 * (this.W2_[leftCell] + this.W2_[rightCell]);
-            const avg_W3 = 0.5 * (this.W3_[leftCell] + this.W3_[rightCell]);
+            const avg_rho = 0.5 * (this.rhorho_[leftCell] + this.rhorho_[rightCell]);
 
             const avg_u = 0.5 * (this.uu_[leftCell] + this.uu_[rightCell]);
             const avg_v = 0.5 * (this.vv_[leftCell] + this.vv_[rightCell]);
-            const avg_E = 0.5 * (this.EE_[leftCell] + this.EE_[rightCell]);
-            const avg_p = 0.5 * (this.pp_[leftCell] + this.pp_[rightCell]);
 
-            this.F0I_[face] = avg_W0 * avg_u * this.mesh_.IfaceAreas_[face];
-            this.F1I_[face] = (avg_W1 * avg_u + avg_p) * this.mesh_.IfaceAreas_[face];
-            this.F2I_[face] = (avg_W2 * avg_u) * this.mesh_.IfaceAreas_[face];
-            this.F3I_[face] = (avg_W3 * avg_u + avg_p * avg_u) * this.mesh_.IfaceAreas_[face];
+            this.F0I_[face] = avg_rho * avg_u * this.mesh_.IfaceAreas_[face];
         }
 
         forall face in 0..<this.mesh_.nFace_ {
@@ -760,20 +503,11 @@ class fullPotentialSpatialDiscretization {
                 continue;
             }
 
-            const avg_W0 = 0.5 * (this.W0_[bottomCell] + this.W0_[topCell]);
-            const avg_W1 = 0.5 * (this.W1_[bottomCell] + this.W1_[topCell]);
-            const avg_W2 = 0.5 * (this.W2_[bottomCell] + this.W2_[topCell]);
-            const avg_W3 = 0.5 * (this.W3_[bottomCell] + this.W3_[topCell]);
-
+            const avg_rho = 0.5 * (this.rhorho_[bottomCell] + this.rhorho_[topCell]);
             const avg_u = 0.5 * (this.uu_[bottomCell] + this.uu_[topCell]);
             const avg_v = 0.5 * (this.vv_[bottomCell] + this.vv_[topCell]);
-            const avg_E = 0.5 * (this.EE_[bottomCell] + this.EE_[topCell]);
-            const avg_p = 0.5 * (this.pp_[bottomCell] + this.pp_[topCell]);
 
-            this.F0J_[face] = avg_W0 * avg_v * this.mesh_.JfaceAreas_[face];
-            this.F1J_[face] = (avg_W1 * avg_v) * this.mesh_.JfaceAreas_[face];
-            this.F2J_[face] = (avg_W2 * avg_v + avg_p) * this.mesh_.JfaceAreas_[face];
-            this.F3J_[face] = (avg_W3 * avg_v + avg_p * avg_v) * this.mesh_.JfaceAreas_[face];
+            this.F0J_[face] = avg_rho * avg_v * this.mesh_.JfaceAreas_[face];
         }
     }
 
@@ -787,9 +521,9 @@ class fullPotentialSpatialDiscretization {
                 const idxWithGhost = meshIndex2FVMindex(i, j);
                 const u = this.uu_[idxWithGhost];
                 const v = this.vv_[idxWithGhost];
-                const p = this.pp_[idxWithGhost];
                 const rho = this.rhorho_[idxWithGhost];
-                const a = sqrt(this.inputs_.GAMMA_ * p / rho);
+                const mach = this.inputs_.MACH_*sqrt(u**2 + v**2) * rho**((1.0 - this.inputs_.GAMMA_) / 2.0);
+                const a = sqrt(u**2 + v**2) / mach;
 
                 this.LambdaI_[idxWithGhost] = (abs(u) + a) * this.mesh_.avgFaceAreaI_[idx];
                 this.LambdaJ_[idxWithGhost] = (abs(v) + a) * this.mesh_.avgFaceAreaJ_[idx];
@@ -805,55 +539,9 @@ class fullPotentialSpatialDiscretization {
         return (eps2, eps4);
     }
 
-    proc compute_diffusive_fluxes() {
-        forall face in 0..<this.mesh_.nFace_ {
-            const (i, j) = this.mesh_.IfacesIJ_[face];
-            const leftCell = meshIndex2FVMindex(i-1, j);
-            const rightCell = meshIndex2FVMindex(i, j);
-
-            if (this.cellTypesWithGhosts_[leftCell] != 1 || this.cellTypesWithGhosts_[rightCell] != 1) {
-                continue;
-            }
-
-            const leftCell_m1 = leftCell - 1;
-            const rightCell_p1 = rightCell + 1;
-
-            const (eps2, eps4) = this.epsilon(this.pp_[leftCell_m1], this.pp_[leftCell], this.pp_[rightCell], this.pp_[rightCell_p1]);
-            const LambdaS = 0.5*(this.LambdaI_[leftCell] + this.LambdaI_[rightCell]) + 0.5*(this.LambdaJ_[leftCell] + this.LambdaJ_[rightCell]);
-
-            this.D0I_[face] = LambdaS * (eps2 * (this.W0_[rightCell] - this.W0_[leftCell]) - eps4 * (this.W0_[rightCell_p1] - 3.0 * this.W0_[rightCell] + 3.0 * this.W0_[leftCell] - this.W0_[leftCell_m1]) );
-            this.D1I_[face] = LambdaS * (eps2 * (this.W1_[rightCell] - this.W1_[leftCell]) - eps4 * (this.W1_[rightCell_p1] - 3.0 * this.W1_[rightCell] + 3.0 * this.W1_[leftCell] - this.W1_[leftCell_m1]) );
-            this.D2I_[face] = LambdaS * (eps2 * (this.W2_[rightCell] - this.W2_[leftCell]) - eps4 * (this.W2_[rightCell_p1] - 3.0 * this.W2_[rightCell] + 3.0 * this.W2_[leftCell] - this.W2_[leftCell_m1]) );
-            this.D3I_[face] = LambdaS * (eps2 * (this.W3_[rightCell] - this.W3_[leftCell]) - eps4 * (this.W3_[rightCell_p1] - 3.0 * this.W3_[rightCell] + 3.0 * this.W3_[leftCell] - this.W3_[leftCell_m1]) );
-        }
-
-        forall face in 0..<this.mesh_.nFace_ {
-            const (i, j) = this.mesh_.JfacesIJ_[face];
-            const bottomCell = meshIndex2FVMindex(i, j-1);
-            const topCell = meshIndex2FVMindex(i, j);
-
-            if (this.cellTypesWithGhosts_[bottomCell] != 1 || this.cellTypesWithGhosts_[topCell] != 1) {
-                continue;
-            }
-
-            const bottomCell_m1 = bottomCell - this.niCellWithGhosts_;
-            const topCell_p1 = topCell + this.niCellWithGhosts_;
-
-            const (eps2, eps4) = this.epsilon(this.pp_[bottomCell_m1], this.pp_[bottomCell], this.pp_[topCell], this.pp_[topCell_p1]);
-            const LambdaS = 0.5*(this.LambdaI_[bottomCell] + this.LambdaI_[topCell]) + 0.5*(this.LambdaJ_[bottomCell] + this.LambdaJ_[topCell]);
-
-            this.D0J_[face] = LambdaS * (eps2 * (this.W0_[topCell] - this.W0_[bottomCell]) - eps4 * (this.W0_[topCell_p1] - 3.0 * this.W0_[topCell] + 3.0 * this.W0_[bottomCell] - this.W0_[bottomCell_m1]) );
-            this.D1J_[face] = LambdaS * (eps2 * (this.W1_[topCell] - this.W1_[bottomCell]) - eps4 * (this.W1_[topCell_p1] - 3.0 * this.W1_[topCell] + 3.0 * this.W1_[bottomCell] - this.W1_[bottomCell_m1]) );
-            this.D2J_[face] = LambdaS * (eps2 * (this.W2_[topCell] - this.W2_[bottomCell]) - eps4 * (this.W2_[topCell_p1] - 3.0 * this.W2_[topCell] + 3.0 * this.W2_[bottomCell] - this.W2_[bottomCell_m1]) );
-            this.D3J_[face] = LambdaS * (eps2 * (this.W3_[topCell] - this.W3_[bottomCell]) - eps4 * (this.W3_[topCell_p1] - 3.0 * this.W3_[topCell] + 3.0 * this.W3_[bottomCell] - this.W3_[bottomCell_m1]) );
-        }
-    }
-
     proc compute_convective_residuals() {
         this.Rc0_ = 0.0;
         this.Rc1_ = 0.0;
-        this.Rc2_ = 0.0;
-        this.Rc3_ = 0.0;
         
         forall j in 0..<this.mesh_.njCell_ {
             for i in 0..<this.mesh_.niCell_ {
@@ -867,52 +555,19 @@ class fullPotentialSpatialDiscretization {
                 const topFace = bottomFace + this.mesh_.niCell_;
 
                 this.Rc0_[idxWithGhost] = -F0I_[leftFace] + F0I_[rightFace] - F0J_[bottomFace] + F0J_[topFace];
-                this.Rc1_[idxWithGhost] = -F1I_[leftFace] + F1I_[rightFace] - F1J_[bottomFace] + F1J_[topFace];
-                this.Rc2_[idxWithGhost] = -F2I_[leftFace] + F2I_[rightFace] - F2J_[bottomFace] + F2J_[topFace];
-                this.Rc3_[idxWithGhost] = -F3I_[leftFace] + F3I_[rightFace] - F3J_[bottomFace] + F3J_[topFace];
+                this.Rc1_[idxWithGhost] = this.cellVolumesWithGhosts_[idxWithGhost]*(0.5*(this.uu_[idxWithGhost]**2 + this.vv_[idxWithGhost]**2) + 
+                                        ((this.rhorho_[idxWithGhost]**(this.inputs_.GAMMA_ - 1.0) - 1.0) /
+                                        (this.inputs_.MACH_**2 * (this.inputs_.GAMMA_ - 1.0)) - 0.5));
             }
         }
     }
 
-    proc compute_diffusive_residuals() {
-        this.Rd0_ = 0.0;
-        this.Rd1_ = 0.0;
-        this.Rd2_ = 0.0;
-        this.Rd3_ = 0.0;
-        forall j in 0..<this.mesh_.njCell_ {
-            for i in 0..<this.mesh_.niCell_ {
-                const idxWithGhost = meshIndex2FVMindex(i, j);
-                if this.cellTypesWithGhosts_[idxWithGhost] != 1 {
-                    continue;
-                }
-                const leftFace = i + j*this.mesh_.niNode_;
-                const rightFace = leftFace + 1;
-                const bottomFace = i + j*this.mesh_.niCell_;
-                const topFace = bottomFace + this.mesh_.niCell_;
-
-                this.Rd0_[idxWithGhost] = -D0I_[leftFace] + D0I_[rightFace] - D0J_[bottomFace] + D0J_[topFace];
-                this.Rd1_[idxWithGhost] = -D1I_[leftFace] + D1I_[rightFace] - D1J_[bottomFace] + D1J_[topFace];
-                this.Rd2_[idxWithGhost] = -D2I_[leftFace] + D2I_[rightFace] - D2J_[bottomFace] + D2J_[topFace];
-                this.Rd3_[idxWithGhost] = -D3I_[leftFace] + D3I_[rightFace] - D3J_[bottomFace] + D3J_[topFace];
-            }
-        }
-    }
-
-    proc run_even() {
-        this.updatePrimitiveVariablesFromConserved();
+    proc run() {
         this.updateGhostCells();
+        this.updatePrimitiveVariablesFromConserved();
         this.compute_convective_fluxes();
-        this.compute_convective_residuals();
-    }
-    
-    proc run_odd() {
-        this.updatePrimitiveVariablesFromConserved();
-        this.updateGhostCells();
         this.compute_lambdas();
-        this.compute_convective_fluxes();
-        this.compute_diffusive_fluxes();
         this.compute_convective_residuals();
-        this.compute_diffusive_residuals();
     }
 
     proc compute_aerodynamics_coefficients() {
@@ -922,7 +577,7 @@ class fullPotentialSpatialDiscretization {
 
         var avg_nx : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var avg_ny : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
-        var avg_p : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var avg_cp : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var avg_x : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var avg_y : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var avg_area : [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
@@ -931,20 +586,17 @@ class fullPotentialSpatialDiscretization {
             const ip1 = (i + 1) % this.ghostCellWallIndicesWithGhost_.size;
             avg_nx[i] = -0.5 * (this.mesh_.ghostCells_nx_bi_[i] + this.mesh_.ghostCells_nx_bi_[ip1]);
             avg_ny[i] = -0.5 * (this.mesh_.ghostCells_ny_bi_[i] + this.mesh_.ghostCells_ny_bi_[ip1]);
-            avg_p[i] = 0.5 * (this.ghostCells_p_bi_[i] + this.ghostCells_p_bi_[ip1]);
+            avg_cp[i] = 0.5 * (this.ghostCells_cp_bi_[i] + this.ghostCells_cp_bi_[ip1]);
             avg_x[i] = 0.5 * (this.mesh_.ghostCells_x_bi_[i] + this.mesh_.ghostCells_x_bi_[ip1]);
             avg_y[i] = 0.5 * (this.mesh_.ghostCells_y_bi_[i] + this.mesh_.ghostCells_y_bi_[ip1]);
             avg_area[i] = sqrt( (this.mesh_.ghostCells_x_bi_[ip1] - this.mesh_.ghostCells_x_bi_[i])**2 + (this.mesh_.ghostCells_y_bi_[ip1] - this.mesh_.ghostCells_y_bi_[i])**2 );
         }
 
         forall i in 0..<this.ghostCellWallIndicesWithGhost_.size with (+reduce Fx, +reduce Fy, +reduce M) {
-            Fx += avg_p[i] * avg_nx[i] * avg_area[i];
-            Fy += avg_p[i] * avg_ny[i] * avg_area[i];
-            M += avg_p[i] * ((this.inputs_.X_REF_ - avg_x[i]) * avg_ny[i] - (avg_y[i] - this.inputs_.Y_REF_) * avg_nx[i]) * avg_area[i];
+            Fx += avg_cp[i] * avg_nx[i] * avg_area[i];
+            Fy += avg_cp[i] * avg_ny[i] * avg_area[i];
+            M += avg_cp[i] * ((this.inputs_.X_REF_ - avg_x[i]) * avg_ny[i] + (avg_y[i] - this.inputs_.Y_REF_) * avg_nx[i]) * avg_area[i];
         }
-        Fx /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_);
-        Fy /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_);
-        M /= (this.inputs_.Q_INF_ * this.inputs_.S_REF_ * this.inputs_.C_REF_);
 
         const Cl = Fy*cos(this.inputs_.ALPHA_ * pi / 180.0) - Fx*sin(this.inputs_.ALPHA_ * pi / 180.0);
         const Cd = Fx*cos(this.inputs_.ALPHA_ * pi / 180.0) + Fy*sin(this.inputs_.ALPHA_ * pi / 180.0);
@@ -960,8 +612,6 @@ class fullPotentialSpatialDiscretization {
                                  iterations: list(int),
                                  res0: list(real(64)),
                                  res1: list(real(64)),
-                                 res2: list(real(64)),
-                                 res3: list(real(64)),
                                  cls: list(real(64)),
                                  cds: list(real(64)),
                                  cms: list(real(64))) {
@@ -970,21 +620,21 @@ class fullPotentialSpatialDiscretization {
         var u: [dom] real(64);
         var v: [dom] real(64);
         var w: [dom] real(64);
-        var E: [dom] real(64);
         var p: [dom] real(64);
         var Rc0: [dom] real(64);
         var Rc1: [dom] real(64);
-        var Rc2: [dom] real(64);
-        var Rc3: [dom] real(64);
         var Rd0: [dom] real(64);
         var Rd1: [dom] real(64);
-        var Rd2: [dom] real(64);
-        var Rd3: [dom] real(64);
         var R0: [dom] real(64);
         var R1: [dom] real(64);
-        var R2: [dom] real(64);
-        var R3: [dom] real(64);
         var mach: [dom] real(64);
+
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                this.pp_[idxWithGhost] = this.rhorho_[idxWithGhost]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2);
+            }
+        }
 
         forall j in 0..<this.mesh_.njCell_ {
             for i in 0..<this.mesh_.niCell_ {
@@ -993,26 +643,17 @@ class fullPotentialSpatialDiscretization {
                 rho[idx] = this.rhorho_[idxWithGhost];
                 u[idx] = this.uu_[idxWithGhost];
                 v[idx] = this.vv_[idxWithGhost];
-                E[idx] = this.EE_[idxWithGhost];
                 p[idx] = this.pp_[idxWithGhost];
 
                 if (this.cellTypesWithGhosts_[idxWithGhost] == 1) {
                     Rc0[idx] = this.Rc0_[idxWithGhost];
                     Rc1[idx] = this.Rc1_[idxWithGhost];
-                    Rc2[idx] = this.Rc2_[idxWithGhost];
-                    Rc3[idx] = this.Rc3_[idxWithGhost];
                     Rd0[idx] = this.Rd0_[idxWithGhost];
                     Rd1[idx] = this.Rd1_[idxWithGhost];
-                    Rd2[idx] = this.Rd2_[idxWithGhost];
-                    Rd3[idx] = this.Rd3_[idxWithGhost];
                     R0[idx] = this.R0_[idxWithGhost];
                     R1[idx] = this.R1_[idxWithGhost];
-                    R2[idx] = this.R2_[idxWithGhost];
-                    R3[idx] = this.R3_[idxWithGhost];
                 }
-                
-                const a = sqrt(this.inputs_.GAMMA_ * p[idx] / rho[idx]);
-                mach[idx] = sqrt(u[idx]**2 + v[idx]**2) / a;
+                mach[idx] = sqrt(u[idx]**2 + v[idx]**2) * this.inputs_.MACH_ * rho[idx]**((1.0 - this.inputs_.GAMMA_)/2.0);
             }
         }
 
@@ -1021,20 +662,13 @@ class fullPotentialSpatialDiscretization {
         fields["VelocityX"] = u;
         fields["VelocityY"] = v;
         fields["VelocityZ"] = w;
-        fields["Energy"] = E;
         fields["Pressure"] = p;
         fields["Rc0"] = Rc0;
         fields["Rc1"] = Rc1;
-        fields["Rc2"] = Rc2;
-        fields["Rc3"] = Rc3;
         fields["Rd0"] = Rd0;
         fields["Rd1"] = Rd1;
-        fields["Rd2"] = Rd2;
-        fields["Rd3"] = Rd3;
         fields["R0"] = R0;
         fields["R1"] = R1;
-        fields["R2"] = R2;
-        fields["R3"] = R3;
         fields["Mach"] = mach;
 
 
@@ -1042,7 +676,7 @@ class fullPotentialSpatialDiscretization {
         var writer = new cgnsFlowWriter_c(this.inputs_.OUTPUT_FILENAME_);
         writer.writeToCGNS(this.mesh_, dom, fields);
 
-        writer.writeConvergenceHistory(time, iterations, res0, res1, res2, res3, cls, cds, cms);
+        writer.writeConvergenceHistory(time, iterations, res0, res1, cls, cds, cms);
 
         // Wall solution
         var TEkls_ = this.mesh_.TEkls_!.borrow();
@@ -1050,15 +684,13 @@ class fullPotentialSpatialDiscretization {
             TEkls_.rho_fieldValues_[j] = this.rhorho_[nearestCell];
             TEkls_.u_fieldValues_[j] = this.uu_[nearestCell];
             TEkls_.v_fieldValues_[j] = this.vv_[nearestCell];
-            TEkls_.E_fieldValues_[j] = this.EE_[nearestCell];
             TEkls_.p_fieldValues_[j] = this.pp_[nearestCell];
         }
         const rho_TE = TEkls_.interpolate(TEkls_.rho_fieldValues_);
         const u_TE = TEkls_.interpolate(TEkls_.u_fieldValues_);
         const v_TE = TEkls_.interpolate(TEkls_.v_fieldValues_);
-        const E_TE = TEkls_.interpolate(TEkls_.E_fieldValues_);
         const p_TE = TEkls_.interpolate(TEkls_.p_fieldValues_);
-        const mach_TE = sqrt(u_TE**2 + v_TE**2) / sqrt(this.inputs_.GAMMA_ * p_TE / rho_TE);
+        const mach_TE = sqrt(u_TE**2 + v_TE**2) * this.inputs_.MACH_ * rho_TE**((1.0 - this.inputs_.GAMMA_)/2.0);
         const cp_TE = (p_TE - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
 
         var LEkls_ = this.mesh_.LEkls_!.borrow();
@@ -1066,22 +698,19 @@ class fullPotentialSpatialDiscretization {
             LEkls_.rho_fieldValues_[j] = this.rhorho_[nearestCell];
             LEkls_.u_fieldValues_[j] = this.uu_[nearestCell];
             LEkls_.v_fieldValues_[j] = this.vv_[nearestCell];
-            LEkls_.E_fieldValues_[j] = this.EE_[nearestCell];
             LEkls_.p_fieldValues_[j] = this.pp_[nearestCell];
         }
         const rho_LE = LEkls_.interpolate(LEkls_.rho_fieldValues_);
         const u_LE = LEkls_.interpolate(LEkls_.u_fieldValues_);
         const v_LE = LEkls_.interpolate(LEkls_.v_fieldValues_);
-        const E_LE = LEkls_.interpolate(LEkls_.E_fieldValues_);
         const p_LE = LEkls_.interpolate(LEkls_.p_fieldValues_);
-        const mach_LE = sqrt(u_LE**2 + v_LE**2) / sqrt(this.inputs_.GAMMA_ * p_LE / rho_LE);
+        const mach_LE = sqrt(u_LE**2 + v_LE**2) * this.inputs_.MACH_ * rho_LE**((1.0 - this.inputs_.GAMMA_)/2.0);
         const cp_LE = (p_LE - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
 
         var wall_fields_LE_TE = new map(string, [0..<2] real(64));
         wall_fields_LE_TE["Density"] = [rho_LE, rho_TE];
         wall_fields_LE_TE["VelocityX"] = [u_LE, u_TE];
         wall_fields_LE_TE["VelocityY"] = [v_LE, v_TE];
-        wall_fields_LE_TE["Energy"] = [E_LE, E_TE];
         wall_fields_LE_TE["Pressure"] = [p_LE, p_TE];
         wall_fields_LE_TE["Mach"] = [mach_LE, mach_TE];
         wall_fields_LE_TE["Cp"] = [cp_LE, cp_TE];
@@ -1090,7 +719,6 @@ class fullPotentialSpatialDiscretization {
 
 
         var wall_mach: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
-        var wall_cp: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var ghostCx: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var ghostCy: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
         var ghostuu: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
@@ -1103,10 +731,7 @@ class fullPotentialSpatialDiscretization {
             const rho_w = this.ghostCells_rho_bi_[i];
             const u_w = this.ghostCells_u_bi_[i];
             const v_w = this.ghostCells_v_bi_[i];
-            const p_w = this.ghostCells_p_bi_[i];
-            const a_w = sqrt(this.inputs_.GAMMA_ * p_w / rho_w);
-            wall_mach[i] = sqrt(u_w**2 + v_w**2) / a_w;
-            wall_cp[i] = (p_w - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
+            wall_mach[i] = sqrt(u_w**2 + v_w**2) * this.inputs_.MACH_ * rho_w**((1.0 - this.inputs_.GAMMA_)/2.0);
             ghostCx[i] = this.mesh_.xCells_[idx];
             ghostCy[i] = this.mesh_.yCells_[idx];
             ghostuu[i] = this.uu_[idxWithGhost];
@@ -1120,17 +745,15 @@ class fullPotentialSpatialDiscretization {
         wall_fields["y"] = this.mesh_.ghostCells_y_bi_;
         wall_fields["x_mirror"] = this.mesh_.ghostCells_x_mirror_;
         wall_fields["y_mirror"] = this.mesh_.ghostCells_y_mirror_;
-        wall_fields["Pressure"] = this.ghostCells_p_bi_;
         wall_fields["Density"] = this.ghostCells_rho_bi_;
         wall_fields["VelocityX"] = this.ghostCells_u_bi_;
         wall_fields["VelocityY"] = this.ghostCells_v_bi_;
         wall_fields["VelocityZ"] = this.ghostCells_w_bi_;
-        wall_fields["Energy"] = this.ghostCells_E_bi_;
+        wall_fields["Cp"] = this.ghostCells_cp_bi_;
         wall_fields["nx"] = this.mesh_.ghostCells_nx_bi_;
         wall_fields["ny"] = this.mesh_.ghostCells_ny_bi_;
         wall_fields["curvature"] = this.mesh_.ghostCells_curvature_bi_;
         wall_fields["Mach"] = wall_mach;
-        wall_fields["Cp"] = wall_cp;
         wall_fields["x_ghost"] = ghostCx;
         wall_fields["y_ghost"] = ghostCy;
         wall_fields["VelocityX_ghost"] = ghostuu;
@@ -1141,6 +764,157 @@ class fullPotentialSpatialDiscretization {
         writer.writeWallToCGNS(this.mesh_, {0..<this.ghostCellWallIndicesWithGhost_.size},wall_fields);
 
     }
+
+    proc writeSolution2CGNS() {
+        const dom = this.mesh_.cell_dom_;
+        var rho: [dom] real(64);
+        var u: [dom] real(64);
+        var v: [dom] real(64);
+        var w: [dom] real(64);
+        var p: [dom] real(64);
+        var Rc0: [dom] real(64);
+        var Rc1: [dom] real(64);
+        var Rd0: [dom] real(64);
+        var Rd1: [dom] real(64);
+        var R0: [dom] real(64);
+        var R1: [dom] real(64);
+        var mach: [dom] real(64);
+
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                this.pp_[idxWithGhost] = this.rhorho_[idxWithGhost]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2);
+            }
+        }
+
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idx = this.mesh_.iiCell(i, j);
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                rho[idx] = this.rhorho_[idxWithGhost];
+                u[idx] = this.uu_[idxWithGhost];
+                v[idx] = this.vv_[idxWithGhost];
+                p[idx] = this.pp_[idxWithGhost];
+
+                if (this.cellTypesWithGhosts_[idxWithGhost] == 1) {
+                    Rc0[idx] = this.Rc0_[idxWithGhost];
+                    Rc1[idx] = this.Rc1_[idxWithGhost];
+                    Rd0[idx] = this.Rd0_[idxWithGhost];
+                    Rd1[idx] = this.Rd1_[idxWithGhost];
+                    R0[idx] = this.R0_[idxWithGhost];
+                    R1[idx] = this.R1_[idxWithGhost];
+                }
+                mach[idx] = sqrt(u[idx]**2 + v[idx]**2) * this.inputs_.MACH_ * rho[idx]**((1.0 - this.inputs_.GAMMA_)/2.0);
+            }
+        }
+
+        var fields = new map(string, [dom] real(64));
+        fields["Density"] = rho;
+        fields["VelocityX"] = u;
+        fields["VelocityY"] = v;
+        fields["VelocityZ"] = w;
+        fields["Pressure"] = p;
+        fields["Rc0"] = Rc0;
+        fields["Rc1"] = Rc1;
+        fields["Rd0"] = Rd0;
+        fields["Rd1"] = Rd1;
+        fields["R0"] = R0;
+        fields["R1"] = R1;
+        fields["Mach"] = mach;
+
+
+
+        var writer = new cgnsFlowWriter_c(this.inputs_.OUTPUT_FILENAME_);
+        writer.writeToCGNS(this.mesh_, dom, fields);
+
+        // Wall solution
+        var TEkls_ = this.mesh_.TEkls_!.borrow();
+        for (j, nearestCell) in zip(0..<4, this.mesh_.nearestCellTE_[0..]) { // MAYBE GENERALIZE LATER
+            TEkls_.rho_fieldValues_[j] = this.rhorho_[nearestCell];
+            TEkls_.u_fieldValues_[j] = this.uu_[nearestCell];
+            TEkls_.v_fieldValues_[j] = this.vv_[nearestCell];
+            TEkls_.p_fieldValues_[j] = this.pp_[nearestCell];
+        }
+        const rho_TE = TEkls_.interpolate(TEkls_.rho_fieldValues_);
+        const u_TE = TEkls_.interpolate(TEkls_.u_fieldValues_);
+        const v_TE = TEkls_.interpolate(TEkls_.v_fieldValues_);
+        const p_TE = TEkls_.interpolate(TEkls_.p_fieldValues_);
+        const mach_TE = sqrt(u_TE**2 + v_TE**2) * this.inputs_.MACH_ * rho_TE**((1.0 - this.inputs_.GAMMA_)/2.0);
+        const cp_TE = (p_TE - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
+
+        var LEkls_ = this.mesh_.LEkls_!.borrow();
+        for (j, nearestCell) in zip(0..<4, this.mesh_.nearestCellLE_[0..]) { // MAYBE GENERALIZE LATER
+            LEkls_.rho_fieldValues_[j] = this.rhorho_[nearestCell];
+            LEkls_.u_fieldValues_[j] = this.uu_[nearestCell];
+            LEkls_.v_fieldValues_[j] = this.vv_[nearestCell];
+            LEkls_.p_fieldValues_[j] = this.pp_[nearestCell];
+        }
+        const rho_LE = LEkls_.interpolate(LEkls_.rho_fieldValues_);
+        const u_LE = LEkls_.interpolate(LEkls_.u_fieldValues_);
+        const v_LE = LEkls_.interpolate(LEkls_.v_fieldValues_);
+        const p_LE = LEkls_.interpolate(LEkls_.p_fieldValues_);
+        const mach_LE = sqrt(u_LE**2 + v_LE**2) * this.inputs_.MACH_ * rho_LE**((1.0 - this.inputs_.GAMMA_)/2.0);
+        const cp_LE = (p_LE - this.inputs_.P_INF_) / (0.5 * this.inputs_.RHO_INF_ * (this.inputs_.U_INF_**2 + this.inputs_.V_INF_**2));
+
+        var wall_fields_LE_TE = new map(string, [0..<2] real(64));
+        wall_fields_LE_TE["Density"] = [rho_LE, rho_TE];
+        wall_fields_LE_TE["VelocityX"] = [u_LE, u_TE];
+        wall_fields_LE_TE["VelocityY"] = [v_LE, v_TE];
+        wall_fields_LE_TE["Pressure"] = [p_LE, p_TE];
+        wall_fields_LE_TE["Mach"] = [mach_LE, mach_TE];
+        wall_fields_LE_TE["Cp"] = [cp_LE, cp_TE];
+
+        writer.writeLEandTEtoCGNS(this.mesh_, {0..<2},wall_fields_LE_TE);
+
+
+        var wall_mach: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostCx: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostCy: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostuu: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostvv: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostpp: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        var ghostrho: [0..<this.ghostCellWallIndicesWithGhost_.size] real(64);
+        forall i in 0..<this.ghostCellWallIndicesWithGhost_.size {
+            const idx = this.mesh_.ghostCellIndices_[i];
+            const idxWithGhost = this.ghostCellWallIndicesWithGhost_[i];
+            const rho_w = this.ghostCells_rho_bi_[i];
+            const u_w = this.ghostCells_u_bi_[i];
+            const v_w = this.ghostCells_v_bi_[i];
+            wall_mach[i] = sqrt(u_w**2 + v_w**2) * this.inputs_.MACH_ * rho_w**((1.0 - this.inputs_.GAMMA_)/2.0);
+            ghostCx[i] = this.mesh_.xCells_[idx];
+            ghostCy[i] = this.mesh_.yCells_[idx];
+            ghostuu[i] = this.uu_[idxWithGhost];
+            ghostvv[i] = this.vv_[idxWithGhost];
+            ghostpp[i] = this.pp_[idxWithGhost];
+            ghostrho[i] = this.rhorho_[idxWithGhost];
+        }
+
+        var wall_fields = new map(string, [0..<this.ghostCellWallIndicesWithGhost_.size] real(64));
+        wall_fields["x"] = this.mesh_.ghostCells_x_bi_;
+        wall_fields["y"] = this.mesh_.ghostCells_y_bi_;
+        wall_fields["x_mirror"] = this.mesh_.ghostCells_x_mirror_;
+        wall_fields["y_mirror"] = this.mesh_.ghostCells_y_mirror_;
+        wall_fields["Density"] = this.ghostCells_rho_bi_;
+        wall_fields["VelocityX"] = this.ghostCells_u_bi_;
+        wall_fields["VelocityY"] = this.ghostCells_v_bi_;
+        wall_fields["VelocityZ"] = this.ghostCells_w_bi_;
+        wall_fields["Cp"] = this.ghostCells_cp_bi_;
+        wall_fields["nx"] = this.mesh_.ghostCells_nx_bi_;
+        wall_fields["ny"] = this.mesh_.ghostCells_ny_bi_;
+        wall_fields["curvature"] = this.mesh_.ghostCells_curvature_bi_;
+        wall_fields["Mach"] = wall_mach;
+        wall_fields["x_ghost"] = ghostCx;
+        wall_fields["y_ghost"] = ghostCy;
+        wall_fields["VelocityX_ghost"] = ghostuu;
+        wall_fields["VelocityY_ghost"] = ghostvv;
+        wall_fields["Pressure_ghost"] = ghostpp;
+        wall_fields["Density_ghost"] = ghostrho;
+
+        writer.writeWallToCGNS(this.mesh_, {0..<this.ghostCellWallIndicesWithGhost_.size},wall_fields);
+
+    }
+
+    
 }
 
 

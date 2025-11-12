@@ -1,6 +1,6 @@
-FLOW=euler       # euler || fullPotential
+FLOW=fullPotential       # euler || fullPotential
 
-MESH_FILENAME=pre/cylinder/cartesian_mesh_20.cgns
+MESH_FILENAME=pre/cylinder/cartesian_mesh_10.cgns
 GEOMETRY_FILENAME=pre/cylinder_geometry.cgns
 OUTPUT_FILENAME=output/output.cgns
 CGNS_OUTPUT_FREQ=100000
@@ -22,7 +22,7 @@ GAMMA=1.4
 K2=0.0
 K4=0.015625
 
-CFL=3.6
-IT_MAX=100000
+CFL=1.0
+IT_MAX=1
 CONV_TOL=1e-11
 RESIDUAL_SMOOTHING=true
