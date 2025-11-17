@@ -16,6 +16,7 @@ class fullPotentialSpatialDiscretization {
     var inputs_ : inputsConfig;
 
     var one_over_gamma_ : real(64);
+    var one_over_gamma_minus_one_ : real(64);
     var two_gamma_over_gamma_minus_one_ : real(64);
 
     var cell_dom_with_ghosts_ : domain(1) = {1..0};
@@ -32,6 +33,14 @@ class fullPotentialSpatialDiscretization {
     var uu_ : [cell_dom_with_ghosts_] real(64);
     var vv_ : [cell_dom_with_ghosts_] real(64);
     var pp_ : [cell_dom_with_ghosts_] real(64);
+
+    var mi_ : [cell_dom_with_ghosts_] real(64);
+    var si_ : [cell_dom_with_ghosts_] real(64);
+    var ni_ : [cell_dom_with_ghosts_] real(64);
+
+    var mj_ : [cell_dom_with_ghosts_] real(64);
+    var sj_ : [cell_dom_with_ghosts_] real(64);
+    var nj_ : [cell_dom_with_ghosts_] real(64);
 
     var Rc0_ : [cell_dom_with_ghosts_] real(64);
     var Rc1_ : [cell_dom_with_ghosts_] real(64);
@@ -72,13 +81,13 @@ class fullPotentialSpatialDiscretization {
     var face_dom_ : domain(1) = {1..0};
     var F0I_ : [face_dom_] real(64);
     var F1I_ : [face_dom_] real(64);
-    var F2I_ : [face_dom_] real(64);
-    var F3I_ : [face_dom_] real(64);
+    var dF0Idrho_ : [face_dom_] real(64);
+    var avg_rho_I_ : [face_dom_] real(64);
 
     var F0J_ : [face_dom_] real(64);
     var F1J_ : [face_dom_] real(64);
-    var F2J_ : [face_dom_] real(64);
-    var F3J_ : [face_dom_] real(64);
+    var dF0Jdrho_ : [face_dom_] real(64);
+    var avg_rho_J_ : [face_dom_] real(64);
 
     var D0I_ : [face_dom_] real(64);
     var D1I_ : [face_dom_] real(64);
@@ -106,6 +115,7 @@ class fullPotentialSpatialDiscretization {
         this.inputs_ = inputs;
 
         this.one_over_gamma_ = 1.0 / this.inputs_.GAMMA_;
+        this.one_over_gamma_minus_one_ = 1.0 / (this.inputs_.GAMMA_ - 1.0);
         this.two_gamma_over_gamma_minus_one_ = 2.0 * this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ - 1.0);
 
         // Define domains
@@ -148,41 +158,41 @@ class fullPotentialSpatialDiscretization {
         forall i in 2..<this.niCellWithGhosts_-2 {
             const face = i-2;
             this.xCellsWithGhosts_[i+this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + 2 * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+            this.yCellsWithGhosts_[i+this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - 2*abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
         }
         forall i in 2..<this.niCellWithGhosts_-2 {
             const face = i-2;
             this.xCellsWithGhosts_[i] = this.xCellsWithGhosts_[i+this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i] = this.yCellsWithGhosts_[i+this.niCellWithGhosts_] - abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+            this.yCellsWithGhosts_[i] = this.yCellsWithGhosts_[i+this.niCellWithGhosts_] - 2*abs(this.yCellsWithGhosts_[i + 2 * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
         }
         forall i in 2..<this.niCellWithGhosts_-2 {
             const face = i-2 + (this.mesh_.njCell_)* (this.mesh_.niCell_);
             this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] + abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] + 2*abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
         }
         forall i in 2..<this.niCellWithGhosts_-2 {
             const face = i-2 + (this.mesh_.njCell_)* (this.mesh_.niCell_);
             this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.xCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_];
-            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] + abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
+            this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-1) * this.niCellWithGhosts_] = this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-2) * this.niCellWithGhosts_] + 2*abs(this.yCellsWithGhosts_[i + (this.njCellWithGhosts_-3) * this.niCellWithGhosts_] - this.mesh_.JfacesCy_[face]);
         }
         forall j in 2..<this.njCellWithGhosts_-2 {
             const face = (j-2) * (this.mesh_.niCell_+1);
-            this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - 2*abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
             this.yCellsWithGhosts_[1 + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[2 + j * this.niCellWithGhosts_];
         }
         forall j in 2..<this.njCellWithGhosts_-2 {
             const face = (j-2) * (this.mesh_.niCell_+1);
-            this.xCellsWithGhosts_[0 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] - abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.xCellsWithGhosts_[0 + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[1 + j * this.niCellWithGhosts_] - 2*abs(this.xCellsWithGhosts_[2 + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
             this.yCellsWithGhosts_[0 + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[1 + j * this.niCellWithGhosts_];
         }
         forall j in 2..<this.njCellWithGhosts_-2 {
             const face = this.mesh_.niCell_ + (j-2) * (this.mesh_.niCell_+1);
-            this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] + abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] + 2*abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
             this.yCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_];
         }
         forall j in 2..<this.njCellWithGhosts_-2 {
             const face = this.mesh_.niCell_ + (j-2) * (this.mesh_.niCell_+1);
-            this.xCellsWithGhosts_[(this.niCellWithGhosts_-1) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] + abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
+            this.xCellsWithGhosts_[(this.niCellWithGhosts_-1) + j * this.niCellWithGhosts_] = this.xCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_] + 2*abs(this.xCellsWithGhosts_[(this.niCellWithGhosts_-3) + j * this.niCellWithGhosts_] - this.mesh_.IfacesCx_[face]);
             this.yCellsWithGhosts_[(this.niCellWithGhosts_-1) + j * this.niCellWithGhosts_] = this.yCellsWithGhosts_[(this.niCellWithGhosts_-2) + j * this.niCellWithGhosts_];
         }
 
@@ -227,13 +237,22 @@ class fullPotentialSpatialDiscretization {
 
         if this.inputs_.INITIAL_SOLUTION_ != "" {
             writeln("Reading initial solution from ", this.inputs_.INITIAL_SOLUTION_);
-            const (Density, VelocityX, VelocityY, Pressure, Energy) = readCGNSFlowField(this.inputs_.INITIAL_SOLUTION_);
+            const (Density, Phi, VelocityX, VelocityY) = readFullPotentialCGNSFlowField(this.inputs_.INITIAL_SOLUTION_);
 
             if Density.size != this.mesh_.nCell_ {
                 halt("Error: Initial solution size does not match number of cells with ghosts.");
             }
             else {
-                writeln("Initial solution not loaded TO BE IMPLEMENTED.");
+                forall j in 0..<this.mesh_.njCell_ {
+                    for i in 0..<this.mesh_.niCell_ {
+                        const idxWithGhost = meshIndex2FVMindex(i, j);
+                
+                        this.rhorho_[idxWithGhost] = Density[j, i];
+                        this.phiphi_[idxWithGhost] = Phi[j, i];
+                        this.uu_[idxWithGhost] = VelocityX[j, i];
+                        this.vv_[idxWithGhost] = VelocityY[j, i];
+                    }
+                }
             }
         }
 
@@ -241,14 +260,11 @@ class fullPotentialSpatialDiscretization {
             forall j in 0..<this.mesh_.njCell_ {
                 for i in 0..<this.mesh_.niCell_ {
                     const idxWithGhost = meshIndex2FVMindex(i, j);
-                    const cellType = this.cellTypesWithGhosts_[idxWithGhost];
-                    if cellType != -1 { // not solid
-                        this.rhorho_[idxWithGhost] = this.inputs_.RHO_INF_;
-                        this.phiphi_[idxWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[idxWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[idxWithGhost];
-                        this.uu_[idxWithGhost] = this.inputs_.U_INF_;
-                        this.vv_[idxWithGhost] = this.inputs_.V_INF_;
-                        this.pp_[idxWithGhost] = this.inputs_.P_INF_;
-                    }
+                    
+                    this.rhorho_[idxWithGhost] = this.inputs_.RHO_INF_;
+                    this.phiphi_[idxWithGhost] = this.inputs_.U_INF_ * this.xCellsWithGhosts_[idxWithGhost] + this.inputs_.V_INF_ * this.yCellsWithGhosts_[idxWithGhost];
+                    this.uu_[idxWithGhost] = this.inputs_.U_INF_;
+                    this.vv_[idxWithGhost] = this.inputs_.V_INF_;
                 }
             }
         }
@@ -314,6 +330,68 @@ class fullPotentialSpatialDiscretization {
         forall i in this.inflowFacesJ_dom_ {
             this.inflowFacesJ_[i] = inflowFacesJ[i];
         }
+
+        forall j in 1..<this.njCellWithGhosts_-1 {
+            for i in 1..<this.niCellWithGhosts_-1 {
+                const cell = i + j * this.niCellWithGhosts_;
+                const leftCell = cell - 1;
+                const rightCell = cell + 1;
+                const bottomCell = cell - this.niCellWithGhosts_;
+                const topCell = cell + this.niCellWithGhosts_;
+
+                const h_im1 = this.xCellsWithGhosts_[cell] - this.xCellsWithGhosts_[leftCell];
+                const h_ip1 = this.xCellsWithGhosts_[rightCell] - this.xCellsWithGhosts_[cell];
+                const h_jm1 = this.yCellsWithGhosts_[cell] - this.yCellsWithGhosts_[bottomCell];
+                const h_jp1 = this.yCellsWithGhosts_[topCell] - this.yCellsWithGhosts_[cell];
+
+                const m_i = -h_ip1 / (h_im1*(h_ip1 + h_im1));
+                const n_i = h_im1 / (h_ip1*(h_ip1 + h_im1));
+                const s_i = (h_ip1**2 - h_im1**2) / (h_ip1 * h_im1 * (h_ip1 + h_im1));
+
+                const m_j = -h_jp1 / (h_jm1*(h_jp1 + h_jm1));
+                const n_j = h_jm1 / (h_jp1*(h_jp1 + h_jm1));
+                const s_j = (h_jp1**2 - h_jm1**2) / (h_jp1 * h_jm1 * (h_jp1 + h_jm1));
+
+                this.mi_[cell] = m_i;
+                this.ni_[cell] = n_i;
+                this.si_[cell] = s_i;
+
+                this.mj_[cell] = m_j;
+                this.nj_[cell] = n_j;
+                this.sj_[cell] = s_j;
+            }
+        }
+
+        // forall cell in 0..<this.nCellWithGhosts_{
+        //     if this.cellTypesWithGhosts_[cell] != 1 {
+        //         continue;
+        //     }
+        //     const leftCell = cell - 1;
+        //     const rightCell = cell + 1;
+        //     const bottomCell = cell - this.niCellWithGhosts_;
+        //     const topCell = cell + this.niCellWithGhosts_;
+
+        //     const h_im1 = this.xCellsWithGhosts_[leftCell] - this.xCellsWithGhosts_[cell];
+        //     const h_ip1 = this.xCellsWithGhosts_[rightCell] - this.xCellsWithGhosts_[cell];
+        //     const h_jm1 = this.yCellsWithGhosts_[bottomCell] - this.yCellsWithGhosts_[cell];
+        //     const h_jp1 = this.yCellsWithGhosts_[topCell] - this.yCellsWithGhosts_[cell];
+
+        //     const m_i = -h_ip1 / (h_im1**2 - h_ip1*h_im1);
+        //     const n_i = -h_im1 / (h_ip1**2 - h_ip1*h_im1);
+        //     const s_i = -(m_i + n_i);
+
+        //     const m_j = -h_jp1 / (h_jm1**2 - h_jp1*h_jm1);
+        //     const n_j = -h_jm1 / (h_jp1**2 - h_jp1*h_jm1);
+        //     const s_j = -(m_j + n_j);
+
+        //     this.mi_[cell] = m_i;
+        //     this.ni_[cell] = n_i;
+        //     this.si_[cell] = s_i;
+
+        //     this.mj_[cell] = m_j;
+        //     this.nj_[cell] = n_j;
+        //     this.sj_[cell] = s_j;
+        // }
     }
 
     proc updateGhostCells() {
@@ -333,16 +411,10 @@ class fullPotentialSpatialDiscretization {
             const u_mirror = kls.interpolate(kls.u_fieldValues_);
             const v_mirror = kls.interpolate(kls.v_fieldValues_);
 
-            // if this.mesh_.ghostCells_x_bi_[i] > 0.5 {
-                this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
-                this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
-            //     this.pp_[ghostCell] = p_mirror;
-            //     this.rhorho_[ghostCell] = rho_mirror;
-            // }
-            // else {
-                this.rhorho_[ghostCell] = rho_mirror;
-                this.phiphi_[ghostCell] = phi_mirror;
-            // }
+            this.rhorho_[ghostCell] = rho_mirror;
+            this.phiphi_[ghostCell] = phi_mirror;
+            this.uu_[ghostCell] = u_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_nx_bi_[i];
+            this.vv_[ghostCell] = v_mirror - 2.0 * (u_mirror * this.mesh_.ghostCells_nx_bi_[i] + v_mirror * this.mesh_.ghostCells_ny_bi_[i]) * this.mesh_.ghostCells_ny_bi_[i];
 
             this.ghostCells_rho_mirror_[i] = rho_mirror;
             this.ghostCells_phi_mirror_[i] = phi_mirror;
@@ -355,9 +427,7 @@ class fullPotentialSpatialDiscretization {
             this.ghostCells_phi_bi_[i] = 0.5 * (this.phiphi_[ghostCell] + this.ghostCells_phi_mirror_[i]);
             this.ghostCells_u_bi_[i] = 0.5 * (this.uu_[ghostCell] + this.ghostCells_u_mirror_[i]);
             this.ghostCells_v_bi_[i] = 0.5 * (this.vv_[ghostCell] + this.ghostCells_v_mirror_[i]);
-            const cp_ghost = (this.rhorho_[ghostCell]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2 * this.inputs_.P_INF_) - 1.0) / (this.inputs_.GAMMA_/2*this.inputs_.MACH_**2);
-            const cp_mirror = (this.ghostCells_rho_mirror_[i]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2 * this.inputs_.P_INF_) - 1.0) / (this.inputs_.GAMMA_/2*this.inputs_.MACH_**2);
-            this.ghostCells_cp_bi_[i] = 0.5 * (cp_ghost + cp_mirror);
+            this.ghostCells_cp_bi_[i] = 2*(this.ghostCells_rho_bi_[i]**this.inputs_.GAMMA_ - 1.0) / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2);
         }
 
 
@@ -372,11 +442,8 @@ class fullPotentialSpatialDiscretization {
                 const leftCellWithGhost = meshIndex2FVMindex(i-1, j);
                 const rightCellWithGhost = leftCellWithGhost + 1;
 
-                // const rho_b = this.inputs_.RHO_INF_;
-                // const phi_b = this.inputs_.U_INF_ * this.mesh_.IfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.IfacesCy_[face];
-
-                // this.W0_[rightCellWithGhost] = 2*rho_b - this.W0_[leftCellWithGhost];
-                // this.W1_[rightCellWithGhost] = 2*phi_b - this.W1_[leftCellWithGhost];
+                // this.uu_[rightCellWithGhost] = 2*(this.inputs_.U_INF_-this.Rc1_[leftCellWithGhost] / (this.inputs_.C_INF_ - this.inputs_.U_INF_)) - this.uu_[leftCellWithGhost];
+                // this.vv_[rightCellWithGhost] = 2*(this.inputs_.V_INF_-this.Rc1_[leftCellWithGhost] / (this.inputs_.C_INF_ - this.inputs_.V_INF_)) - this.vv_[leftCellWithGhost];
 
                 this.uu_[rightCellWithGhost] = this.inputs_.U_INF_;
                 this.vv_[rightCellWithGhost] = this.inputs_.V_INF_;
@@ -389,11 +456,8 @@ class fullPotentialSpatialDiscretization {
                 const rightCellWithGhost = meshIndex2FVMindex(i, j);
                 const leftCellWithGhost = rightCellWithGhost - 1;
 
-                // const rho_b = this.inputs_.RHO_INF_;
-                // const phi_b = this.inputs_.U_INF_ * this.mesh_.IfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.IfacesCy_[face];
-
-                // this.W0_[leftCellWithGhost] = 2*rho_b - this.W0_[rightCellWithGhost];
-                // this.W1_[leftCellWithGhost] = 2*phi_b - this.W1_[rightCellWithGhost];
+                // this.uu_[leftCellWithGhost] = 2*(this.inputs_.U_INF_+this.Rc1_[rightCellWithGhost] / (this.inputs_.C_INF_ + this.inputs_.U_INF_)) - this.uu_[rightCellWithGhost];
+                // this.vv_[leftCellWithGhost] = 2*(this.inputs_.V_INF_+this.Rc1_[rightCellWithGhost] / (this.inputs_.C_INF_ + this.inputs_.V_INF_)) - this.vv_[rightCellWithGhost];
 
                 this.uu_[leftCellWithGhost] = this.inputs_.U_INF_;
                 this.vv_[leftCellWithGhost] = this.inputs_.V_INF_;
@@ -406,11 +470,8 @@ class fullPotentialSpatialDiscretization {
                 const topCellWithGhost = meshIndex2FVMindex(i, 0);
                 const bottomCellWithGhost = topCellWithGhost - this.niCellWithGhosts_;
 
-                // const rho_b = this.inputs_.RHO_INF_;
-                // const phi_b = this.inputs_.U_INF_ * this.mesh_.JfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.JfacesCy_[face];
-
-                // this.W0_[bottomCellWithGhost] = 2*rho_b - this.W0_[topCellWithGhost];
-                // this.W1_[bottomCellWithGhost] = 2*phi_b - this.W1_[topCellWithGhost];
+                // this.uu_[bottomCellWithGhost] = 2*(this.inputs_.U_INF_-this.Rc1_[topCellWithGhost] / (this.inputs_.C_INF_ - this.inputs_.U_INF_)) - this.uu_[topCellWithGhost];
+                // this.vv_[bottomCellWithGhost] = 2*(this.inputs_.V_INF_-this.Rc1_[topCellWithGhost] / (this.inputs_.C_INF_ - this.inputs_.V_INF_)) - this.vv_[topCellWithGhost];
 
                 this.uu_[bottomCellWithGhost] = this.inputs_.U_INF_;
                 this.vv_[bottomCellWithGhost] = this.inputs_.V_INF_;
@@ -419,16 +480,13 @@ class fullPotentialSpatialDiscretization {
                 
             }
 
-            for i in 0..<this.mesh_.niCell_ { // top boundary
+            forall i in 0..<this.mesh_.niCell_ { // top boundary
                 const face = i + this.mesh_.niCell_ * this.mesh_.njCell_;
                 const bottomCellWithGhost = meshIndex2FVMindex(i, this.mesh_.njCell_ - 1);
                 const topCellWithGhost = bottomCellWithGhost + this.niCellWithGhosts_;
 
-                // const rho_b = this.inputs_.RHO_INF_;
-                // const phi_b = this.inputs_.U_INF_ * this.mesh_.JfacesCx_[face] + this.inputs_.V_INF_ * this.mesh_.JfacesCy_[face];
-
-                // this.W0_[topCellWithGhost] = 2*rho_b - this.W0_[bottomCellWithGhost];
-                // this.W1_[topCellWithGhost] = 2*phi_b - this.W1_[bottomCellWithGhost];
+                // this.uu_[topCellWithGhost] = 2*(this.inputs_.U_INF_+this.Rc1_[bottomCellWithGhost] / (this.inputs_.C_INF_ + this.inputs_.U_INF_)) - this.uu_[bottomCellWithGhost];
+                // this.vv_[topCellWithGhost] = 2*(this.inputs_.V_INF_+this.Rc1_[bottomCellWithGhost] / (this.inputs_.C_INF_ + this.inputs_.V_INF_)) - this.vv_[bottomCellWithGhost];
 
                 this.uu_[topCellWithGhost] = this.inputs_.U_INF_;
                 this.vv_[topCellWithGhost] = this.inputs_.V_INF_;
@@ -449,29 +507,23 @@ class fullPotentialSpatialDiscretization {
             const bottomCell = cell - this.niCellWithGhosts_;
             const topCell = cell + this.niCellWithGhosts_;
 
-            const h_im1 = this.xCellsWithGhosts_[leftCell] - this.xCellsWithGhosts_[cell];
-            const h_ip1 = this.xCellsWithGhosts_[rightCell] - this.xCellsWithGhosts_[cell];
-            const h_jm1 = this.yCellsWithGhosts_[bottomCell] - this.yCellsWithGhosts_[cell];
-            const h_jp1 = this.yCellsWithGhosts_[topCell] - this.yCellsWithGhosts_[cell];
+            const m_i = this.mi_[cell];
+            const n_i = this.ni_[cell];
+            const s_i = this.si_[cell];
 
-            const m_i = -h_ip1 / (h_im1**2 - h_ip1*h_im1);
-            const n_i = -h_im1 / (h_ip1**2 - h_ip1*h_im1);
-            const s_i = -(m_i + n_i);
-
-            const m_j = -h_jp1 / (h_jm1**2 - h_jp1*h_jm1);
-            const n_j = -h_jm1 / (h_jp1**2 - h_jp1*h_jm1);
-            const s_j = -(m_j + n_j);
+            const m_j = this.mj_[cell];
+            const n_j = this.nj_[cell];
+            const s_j = this.sj_[cell];
 
             this.uu_[cell] = m_i * this.phiphi_[leftCell] + s_i * this.phiphi_[cell] + n_i * this.phiphi_[rightCell];
             this.vv_[cell] = m_j * this.phiphi_[bottomCell] + s_j * this.phiphi_[cell] + n_j * this.phiphi_[topCell];
 
-            // if cell == 254 {
+            // if cell == 81 {
             //     writeln("Cell ", cell, ": u = ", this.uu_[cell], ", v = ", this.vv_[cell], ", Rc0 = ", this.Rc0_[cell], ", Rc1 = ", this.Rc1_[cell]);
             //     writeln("  phi_left = ", this.phiphi_[leftCell], ", phi_center = ", this.phiphi_[cell], ", phi_right = ", this.phiphi_[rightCell]);
-            //     writeln("  h_im1 = ", h_im1, ", h_ip1 = ", h_ip1);
-            //     writeln("  m_i = ", m_i, ", n_i = ", n_i, ", s_i = ", s_i);
-            //     writeln("  h_jm1 = ", h_jm1, ", h_jp1 = ", h_jp1);
-            //     writeln("  m_j = ", m_j, ", n_j = ", n_j, ", s_j = ", s_j);
+            //     writeln("  phi_bottom = ", this.phiphi_[bottomCell], ", phi_center = ", this.phiphi_[cell], ", phi_top = ", this.phiphi_[topCell]);
+            //     writeln("  m_i = ", m_i, ", s_i = ", s_i, ", n_i = ", n_i, " sum = ", (m_i + s_i + n_i));
+            //     writeln("  m_j = ", m_j, ", s_j = ", s_j, ", n_j = ", n_j, " sum = ", (m_j + s_j + n_j) );
             // }
         }
     }
@@ -486,12 +538,19 @@ class fullPotentialSpatialDiscretization {
                 continue;
             }
 
-            const avg_rho = 0.5 * (this.rhorho_[leftCell] + this.rhorho_[rightCell]);
+            // const avg_rho = 0.5 * (this.rhorho_[leftCell] + this.rhorho_[rightCell]);
+            // const avg_u = 0.5 * (this.uu_[leftCell] + this.uu_[rightCell]);
+            // const avg_v = 0.5 * (this.vv_[leftCell] + this.vv_[rightCell]);
 
-            const avg_u = 0.5 * (this.uu_[leftCell] + this.uu_[rightCell]);
-            const avg_v = 0.5 * (this.vv_[leftCell] + this.vv_[rightCell]);
+            const avg_u = (this.phiphi_[rightCell] - this.phiphi_[leftCell]) / (this.xCellsWithGhosts_[rightCell] - this.xCellsWithGhosts_[leftCell]);
+            const v_right = (this.phiphi_[rightCell + this.niCellWithGhosts_] - this.phiphi_[rightCell - this.niCellWithGhosts_]) / (this.yCellsWithGhosts_[rightCell + this.niCellWithGhosts_] - this.yCellsWithGhosts_[rightCell - this.niCellWithGhosts_]);
+            const v_left = (this.phiphi_[leftCell + this.niCellWithGhosts_] - this.phiphi_[leftCell - this.niCellWithGhosts_]) / (this.yCellsWithGhosts_[leftCell + this.niCellWithGhosts_] - this.yCellsWithGhosts_[leftCell - this.niCellWithGhosts_]);
+            const avg_v = 0.5 * (v_left + v_right);
+            const avg_rho = (1 + (this.inputs_.GAMMA_ - 1) / 2 * this.inputs_.MACH_**2 * (1 - (avg_u**2 + avg_v**2)))**this.one_over_gamma_minus_one_;
 
             this.F0I_[face] = avg_rho * avg_u * this.mesh_.IfaceAreas_[face];
+            this.dF0Idrho_[face] = avg_u * this.mesh_.IfaceAreas_[face];
+            this.avg_rho_I_[face] = avg_rho;
         }
 
         forall face in 0..<this.mesh_.nFace_ {
@@ -503,11 +562,19 @@ class fullPotentialSpatialDiscretization {
                 continue;
             }
 
-            const avg_rho = 0.5 * (this.rhorho_[bottomCell] + this.rhorho_[topCell]);
-            const avg_u = 0.5 * (this.uu_[bottomCell] + this.uu_[topCell]);
-            const avg_v = 0.5 * (this.vv_[bottomCell] + this.vv_[topCell]);
+            // const avg_rho = 0.5 * (this.rhorho_[bottomCell] + this.rhorho_[topCell]);
+            // const avg_u = 0.5 * (this.uu_[bottomCell] + this.uu_[topCell]);
+            // const avg_v = 0.5 * (this.vv_[bottomCell] + this.vv_[topCell]);
+
+            const avg_v = (this.phiphi_[topCell] - this.phiphi_[bottomCell]) / (this.yCellsWithGhosts_[topCell] - this.yCellsWithGhosts_[bottomCell]);
+            const u_top = (this.phiphi_[topCell + 1] - this.phiphi_[topCell - 1]) / (this.xCellsWithGhosts_[topCell + 1] - this.xCellsWithGhosts_[topCell - 1]);
+            const u_bottom = (this.phiphi_[bottomCell + 1] - this.phiphi_[bottomCell - 1]) / (this.xCellsWithGhosts_[bottomCell + 1] - this.xCellsWithGhosts_[bottomCell - 1]);
+            const avg_u = 0.5 * (u_bottom + u_top);
+            const avg_rho = (1 + (this.inputs_.GAMMA_ - 1) / 2 * this.inputs_.MACH_**2 * (1 - (avg_u**2 + avg_v**2)))**this.one_over_gamma_minus_one_;
 
             this.F0J_[face] = avg_rho * avg_v * this.mesh_.JfaceAreas_[face];
+            this.dF0Jdrho_[face] = avg_v * this.mesh_.JfaceAreas_[face];
+            this.avg_rho_J_[face] = avg_rho;
         }
     }
 
@@ -539,6 +606,53 @@ class fullPotentialSpatialDiscretization {
         return (eps2, eps4);
     }
 
+    proc compute_diffusive_fluxes() {
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                this.pp_[idxWithGhost] = this.rhorho_[idxWithGhost]**this.inputs_.GAMMA_ / (this.inputs_.GAMMA_ * this.inputs_.MACH_**2);
+            }
+        }
+
+        forall face in 0..<this.mesh_.nFace_ {
+            const (i, j) = this.mesh_.IfacesIJ_[face];
+            const leftCell = meshIndex2FVMindex(i-1, j);
+            const rightCell = meshIndex2FVMindex(i, j);
+
+            if (this.cellTypesWithGhosts_[leftCell] != 1 || this.cellTypesWithGhosts_[rightCell] != 1) {
+                continue;
+            }
+
+            const leftCell_m1 = leftCell - 1;
+            const rightCell_p1 = rightCell + 1;
+
+            const (eps2, eps4) = this.epsilon(this.pp_[leftCell_m1], this.pp_[leftCell], this.pp_[rightCell], this.pp_[rightCell_p1]);
+            const LambdaS = 0.5*(this.LambdaI_[leftCell] + this.LambdaI_[rightCell]) + 0.5*(this.LambdaJ_[leftCell] + this.LambdaJ_[rightCell]);
+
+            this.D0I_[face] = LambdaS * (eps2 * (this.rhorho_[rightCell] - this.rhorho_[leftCell]) - eps4 * (this.rhorho_[rightCell_p1] - 3.0 * this.rhorho_[rightCell] + 3.0 * this.rhorho_[leftCell] - this.rhorho_[leftCell_m1]) );
+            
+        }
+
+        forall face in 0..<this.mesh_.nFace_ {
+            const (i, j) = this.mesh_.JfacesIJ_[face];
+            const bottomCell = meshIndex2FVMindex(i, j-1);
+            const topCell = meshIndex2FVMindex(i, j);
+
+            if (this.cellTypesWithGhosts_[bottomCell] != 1 || this.cellTypesWithGhosts_[topCell] != 1) {
+                continue;
+            }
+
+            const bottomCell_m1 = bottomCell - this.niCellWithGhosts_;
+            const topCell_p1 = topCell + this.niCellWithGhosts_;
+
+            const (eps2, eps4) = this.epsilon(this.pp_[bottomCell_m1], this.pp_[bottomCell], this.pp_[topCell], this.pp_[topCell_p1]);
+            const LambdaS = 0.5*(this.LambdaI_[bottomCell] + this.LambdaI_[topCell]) + 0.5*(this.LambdaJ_[bottomCell] + this.LambdaJ_[topCell]);
+
+            this.D0J_[face] = LambdaS * (eps2 * (this.rhorho_[topCell] - this.rhorho_[bottomCell]) - eps4 * (this.rhorho_[topCell_p1] - 3.0 * this.rhorho_[topCell] + 3.0 * this.rhorho_[bottomCell] - this.rhorho_[bottomCell_m1]) );
+            
+        }
+    }
+
     proc compute_convective_residuals() {
         this.Rc0_ = 0.0;
         this.Rc1_ = 0.0;
@@ -555,9 +669,32 @@ class fullPotentialSpatialDiscretization {
                 const topFace = bottomFace + this.mesh_.niCell_;
 
                 this.Rc0_[idxWithGhost] = -F0I_[leftFace] + F0I_[rightFace] - F0J_[bottomFace] + F0J_[topFace];
-                this.Rc1_[idxWithGhost] = this.cellVolumesWithGhosts_[idxWithGhost]*(0.5*(this.uu_[idxWithGhost]**2 + this.vv_[idxWithGhost]**2) + 
+                // this.Rc1_[idxWithGhost] = this.cellVolumesWithGhosts_[idxWithGhost]*(0.5*(this.uu_[idxWithGhost]**2 + this.vv_[idxWithGhost]**2) + 
+                //                         ((this.rhorho_[idxWithGhost]**(this.inputs_.GAMMA_ - 1.0) - 1.0) /
+                //                         (this.inputs_.MACH_**2 * (this.inputs_.GAMMA_ - 1.0)) - 0.5));
+                this.Rc1_[idxWithGhost] = (0.5*(this.uu_[idxWithGhost]**2 + this.vv_[idxWithGhost]**2) + 
                                         ((this.rhorho_[idxWithGhost]**(this.inputs_.GAMMA_ - 1.0) - 1.0) /
-                                        (this.inputs_.MACH_**2 * (this.inputs_.GAMMA_ - 1.0)) - 0.5));
+                                        (this.inputs_.MACH_**2 * (this.inputs_.GAMMA_ - 1.0)) - 0.5));                                       
+            }
+        }
+    }
+
+    proc compute_diffusive_residuals() {
+        this.Rd0_ = 0.0;
+        this.Rd1_ = 0.0;
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                if this.cellTypesWithGhosts_[idxWithGhost] != 1 {
+                    continue;
+                }
+                const leftFace = i + j*this.mesh_.niNode_;
+                const rightFace = leftFace + 1;
+                const bottomFace = i + j*this.mesh_.niCell_;
+                const topFace = bottomFace + this.mesh_.niCell_;
+
+                this.Rd0_[idxWithGhost] = -D0I_[leftFace] + D0I_[rightFace] - D0J_[bottomFace] + D0J_[topFace];
+                this.Rd1_[idxWithGhost] = -D1I_[leftFace] + D1I_[rightFace] - D1J_[bottomFace] + D1J_[topFace];
             }
         }
     }
@@ -565,9 +702,11 @@ class fullPotentialSpatialDiscretization {
     proc run() {
         this.updateGhostCells();
         this.updatePrimitiveVariablesFromConserved();
-        this.compute_convective_fluxes();
         this.compute_lambdas();
+        this.compute_convective_fluxes();
         this.compute_convective_residuals();
+        // this.compute_diffusive_fluxes();
+        // this.compute_diffusive_residuals();
     }
 
     proc compute_aerodynamics_coefficients() {
@@ -628,6 +767,7 @@ class fullPotentialSpatialDiscretization {
         var R0: [dom] real(64);
         var R1: [dom] real(64);
         var mach: [dom] real(64);
+        var phi: [dom] real(64);
 
         forall j in 0..<this.mesh_.njCell_ {
             for i in 0..<this.mesh_.niCell_ {
@@ -644,15 +784,14 @@ class fullPotentialSpatialDiscretization {
                 u[idx] = this.uu_[idxWithGhost];
                 v[idx] = this.vv_[idxWithGhost];
                 p[idx] = this.pp_[idxWithGhost];
-
-                if (this.cellTypesWithGhosts_[idxWithGhost] == 1) {
-                    Rc0[idx] = this.Rc0_[idxWithGhost];
-                    Rc1[idx] = this.Rc1_[idxWithGhost];
-                    Rd0[idx] = this.Rd0_[idxWithGhost];
-                    Rd1[idx] = this.Rd1_[idxWithGhost];
-                    R0[idx] = this.R0_[idxWithGhost];
-                    R1[idx] = this.R1_[idxWithGhost];
-                }
+                
+                Rc0[idx] = this.Rc0_[idxWithGhost];
+                Rc1[idx] = this.Rc1_[idxWithGhost];
+                Rd0[idx] = this.Rd0_[idxWithGhost];
+                Rd1[idx] = this.Rd1_[idxWithGhost];
+                R0[idx] = this.R0_[idxWithGhost];
+                R1[idx] = this.R1_[idxWithGhost];
+                phi[idx] = this.phiphi_[idxWithGhost];
                 mach[idx] = sqrt(u[idx]**2 + v[idx]**2) * this.inputs_.MACH_ * rho[idx]**((1.0 - this.inputs_.GAMMA_)/2.0);
             }
         }
@@ -670,6 +809,7 @@ class fullPotentialSpatialDiscretization {
         fields["R0"] = R0;
         fields["R1"] = R1;
         fields["Mach"] = mach;
+        fields["Phi"] = phi;
 
 
 

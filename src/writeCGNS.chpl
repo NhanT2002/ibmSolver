@@ -246,9 +246,9 @@ class cgnsFlowWriter_c {
         convData[0, ..] = time;
         convData[1, ..] = res0;
         convData[2, ..] = res1;
-        convData[4, ..] = cls;
-        convData[5, ..] = cds;
-        convData[6, ..] = cms;
+        convData[3, ..] = cls;
+        convData[4, ..] = cds;
+        convData[5, ..] = cms;
 
         var names = ["Time", "Res0", "Res1", "Cl", "Cd", "Cm"];
 

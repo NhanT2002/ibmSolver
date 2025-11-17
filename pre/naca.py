@@ -9,9 +9,9 @@ for cellsize in cellSizes:
     print(f'Generating mesh with cell size = {cellsize} ...')
     size = 1 / cellsize
     mesh11 = G.cartr2((0,0,0), (size,size,0), (1.,1.,0.0), (5.,5.,0.))
-    mesh12 = G.cartr2((5.,0,0), (size,size,0), (2.,1.0,0.0), (150.,5.,0.))
-    mesh21 = G.cartr2((0,5.,0), (size,size,0), (1.0,2.,0.0), (5.,150.,0.))
-    mesh22 = G.cartr2((5.,5.,0), (size,size,0), (2.,2.,0.0), (150.,150.,0.))
+    mesh12 = G.cartr2((5.,0,0), (size,size,0), (1.1,1.0,0.0), (150.,5.,0.))
+    mesh21 = G.cartr2((0,5.,0), (size,size,0), (1.0,1.1,0.0), (5.,150.,0.))
+    mesh22 = G.cartr2((5.,5.,0), (size,size,0), (1.1,1.1,0.0), (150.,150.,0.))
 
     mesh11_12 = T.join(mesh11, mesh12)
     mesh21_22 = T.join(mesh21, mesh22)
@@ -34,7 +34,26 @@ for cellsize in cellSizes:
 
     for i, z in enumerate(zones):
         mesh = I.renameNode(mesh, z[0], f'Block_{i+1}')
-    C.convertPyTree2File(mesh, f'cylinder/cartesian_mesh_{cellsize}.cgns')
+    C.convertPyTree2File(mesh, f'cylinder2/cartesian_mesh_{cellsize}.cgns')
+
+# cellSizes = [0.08]
+# for cellsize in cellSizes:
+#     print(f'Generating mesh with cell size = {cellsize} ...')
+#     size = 1 / cellsize
+#     mesh = G.cartr2((-150,-150,0), (size,size,0), (1.,1.,0.0), (150.,150.,0.))
+#     # mesh = T.reorder(mesh, (-2,-1,3))
+#     mesh = T.translate(mesh, (0.5,0.,0.))
+
+#     # I.printTree(mesh)
+
+#     zones = I.getZones(mesh)
+#     print("Zones before renaming:")
+#     for z in zones:
+#         print("  ", z[0])
+
+#     for i, z in enumerate(zones):
+#         mesh = I.renameNode(mesh, z[0], f'Block_{i+1}')
+#     C.convertPyTree2File(mesh, f'cylinder/cartesian_mesh_{cellsize}_uniform.cgns')
 
 
 # cellSizes = {0.1: '0-1', 0.05: '0-05', 0.01: '0-01', 0.005: '0-005', 0.0005: '0-0005'}

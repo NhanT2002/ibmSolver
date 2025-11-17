@@ -91,6 +91,24 @@ proc readCGNSFlowField(filename: string) {
     return (Density, VelocityX, VelocityY, Pressure, Energy);
 }
 
+proc readFullPotentialCGNSFlowField(filename: string) {
+    const dsetDensity    = "/Base/Zone/FLOW_SOLUTION_CC/Density/ data";
+    const dsetPhi     = "/Base/Zone/FLOW_SOLUTION_CC/Phi/ data";
+    const dsetVelocityX = "/Base/Zone/FLOW_SOLUTION_CC/VelocityX/ data";
+    const dsetVelocityY = "/Base/Zone/FLOW_SOLUTION_CC/VelocityY/ data";
+
+    var file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if file_id < 0 then halt("Could not open file: ", filename);
+
+    var Density    = read2DDataset(real(64), file_id, dsetDensity);
+    var Phi     = read2DDataset(real(64), file_id, dsetPhi);
+    var VelocityX = read2DDataset(real(64), file_id, dsetVelocityX);
+    var VelocityY = read2DDataset(real(64), file_id, dsetVelocityY);
+
+    H5Fclose(file_id);
+    return (Density, Phi, VelocityX, VelocityY);
+}
+
 proc readGeometry(filename: string) {
     const dsetX = "/Base/Geometry/GridCoordinates/CoordinateX/ data";
     const dsetY = "/Base/Geometry/GridCoordinates/CoordinateY/ data";

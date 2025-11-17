@@ -23,9 +23,20 @@ config const K2 : real(64);
 config const K4 : real(64);
 
 config const CFL : real(64);
+config const CFL_RAMP_FACTOR : real(64);
+config const CFL_RAMP_IT : int;
+config const CFL_RAMP_FINAL : real(64);
+config const OMEGA : real(64);
 config const IT_MAX : int;
 config const CONV_TOL : real(64);
 config const RESIDUAL_SMOOTHING : bool;
+
+config const GMRES_PRECON : string;
+config const GMRES_RTOL : real(64);
+config const GMRES_ATOL : real(64);
+config const GMRES_DTOL : real(64);
+config const GMRES_MAXIT : int;
+config const GMRES_RESTART : int;
 
 record inputsConfig {
     var FLOW_: string = FLOW;
@@ -52,9 +63,20 @@ record inputsConfig {
     var K4_ : real(64) = K4;
 
     var CFL_ : real(64) = CFL;
+    var CFL_RAMP_FACTOR_ : real(64) = CFL_RAMP_FACTOR;
+    var CFL_RAMP_IT_ : int = CFL_RAMP_IT;
+    var CFL_RAMP_FINAL_ : real(64) = CFL_RAMP_FINAL;
+    var OMEGA_ : real(64) = OMEGA;
     var IT_MAX_ : int = IT_MAX;
     var CONV_TOL_ : real(64) = CONV_TOL;
     var RESIDUAL_SMOOTHING_ : bool = RESIDUAL_SMOOTHING;
+
+    var GMRES_PRECON_ : string = GMRES_PRECON;
+    var GMRES_RTOL_: real(64) = GMRES_RTOL;
+    var GMRES_ATOL_: real(64) = GMRES_ATOL;
+    var GMRES_DTOL_: real(64) = GMRES_DTOL;
+    var GMRES_MAXIT_: int = GMRES_MAXIT;
+    var GMRES_RESTART_: int = GMRES_RESTART;    
 
     
     var RHO_INF_ : real(64) = 1.0;
@@ -88,9 +110,19 @@ record inputsConfig {
         writeln("K4 = ", K4);
 
         writeln("CFL = ", CFL);
+        writeln("CFL_RAMP_FACTOR = ", CFL_RAMP_FACTOR);
+        writeln("CFL_RAMP_IT = ", CFL_RAMP_IT);
+        writeln("CFL_RAMP_FINAL = ", CFL_RAMP_FINAL);
+        writeln("OMEGA = ", OMEGA);
         writeln("IT_MAX = ", IT_MAX);
         writeln("CONV_TOL = ", CONV_TOL);
         writeln("RESIDUAL_SMOOTHING = ", RESIDUAL_SMOOTHING);
+
+        writeln("GMRES_RTOL = ", GMRES_RTOL);
+        writeln("GMRES_ATOL = ", GMRES_ATOL);
+        writeln("GMRES_DTOL = ", GMRES_DTOL);
+        writeln("GMRES_MAXIT = ", GMRES_MAXIT);
+        writeln("GMRES_RESTART = ", GMRES_RESTART);
 
 
 

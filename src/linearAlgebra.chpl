@@ -23,9 +23,11 @@ proc GMRES(ref ksp: PETSCksp_c, const ref A: PETSCmatrix_c, const ref b: PETSCve
     var its = ksp.getIterationNumber();
     var reason = ksp.getConvergedReason();
 
-    if reason < 0 {
-        writeln("GMRES did not converge, reason: ", reason);
-    }
+    // if reason < 0 {
+    //     writeln("GMRES did not converge, reason: ", reason);
+    // }
+
+    return (its, reason);
 
 }
 
