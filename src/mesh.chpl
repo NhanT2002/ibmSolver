@@ -195,6 +195,19 @@ class meshData {
     var ghostCells_curvature_bi_ : [ghostCellDom_] real(64);
     var ghostCells_delta_n_ : [ghostCellDom_] real(64);
 
+    var ghostCellm1Dom_ : domain(1) = {1..0};
+    var ghostCellm1Indices_ : [ghostCellm1Dom_] int;
+    var ghostCellm1IJ_ : [ghostCellm1Dom_] (int, int);
+    var ghostCellsm1_nx_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_ny_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_x_mirror_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_y_mirror_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_x_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_y_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_z_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_curvature_bi_ : [ghostCellm1Dom_] real(64);
+    var ghostCellsm1_delta_n_ : [ghostCellm1Dom_] real(64);
+
     const nkls_ = 4;
     var ghostCellsNearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
     var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCellsCx_dom_] int;
@@ -202,6 +215,13 @@ class meshData {
     var ghostCellsNearestFluidCellsCx_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellsNearestFluidCellsCy_ : [ghostCellsNearestFluidCellsCx_dom_] real(64);
     var ghostCellkls_ : [ghostCellDom_] owned kls?;
+
+    var ghostCellsm1NearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
+    var ghostCellsm1NearestFluidCells_ : [ghostCellsm1NearestFluidCellsCx_dom_] int;
+    var ghostCellsm1NearestFluidCellsIJ_ : [ghostCellsm1NearestFluidCellsCx_dom_] (int, int);
+    var ghostCellsm1NearestFluidCellsCx_ : [ghostCellsm1NearestFluidCellsCx_dom_] real(64);
+    var ghostCellsm1NearestFluidCellsCy_ : [ghostCellsm1NearestFluidCellsCx_dom_] real(64);
+    var ghostCellsm1kls_ : [ghostCellm1Dom_] owned kls?;
 
     var LEkls_ : owned kls?;
     var nearestCellLEIJ_ : [0..<nkls_] (int, int);
@@ -555,116 +575,35 @@ class meshData {
             }
         }
 
-        // for j in 1..<this.njCell_-1 {
-        //     for i in 1..<this.niCell_-1 {
-        //         const cell = iiCell(i, j);
-        //         const QPhi = this.QPhi_[cell];
-        //         if QPhi > 0.1 {
-        //             // Divide the cell in 4 subcells and compute phi at their centers
-        //             const avg_face_area_I = this.avgFaceAreaI_[cell];
-        //             const avg_face_area_J = this.avgFaceAreaJ_[cell];
-        //             const cx1 = xCells_[cell] - 0.25 * avg_face_area_I;
-        //             const cy1 = yCells_[cell] - 0.25 * avg_face_area_J;
-        //             const cx2 = xCells_[cell] + 0.25 * avg_face_area_I;
-        //             const cy2 = yCells_[cell] - 0.25 * avg_face_area_J;
-        //             const cx3 = xCells_[cell] - 0.25 * avg_face_area_I;
-        //             const cy3 = yCells_[cell] + 0.25 * avg_face_area_J;
-        //             const cx4 = xCells_[cell] + 0.25 * avg_face_area_I;
-        //             const cy4 = yCells_[cell] + 0.25 * avg_face_area_J;
-                    
-        //             const xCells = [cx1, cx2, cx3, cx4, xCells_[cell]];
-        //             const yCells = [cy1, cy2, cy3, cy4, yCells_[cell]];
-        //             var phiSubcells : [0..<5] real(64);
-        //             for subidx in 0..<5 {
-        //                 var px = xCells[subidx];
-        //                 var py = yCells[subidx];
+        // Identify ghost cells 1 layer inside the geometry
+        var ghostCellm1List = new list((real(64), int, int));
+        for j in 0..<njCell_ {
+            for i in 0..<niCell_ {
+                var idx = iiCell(i, j);
+                if cellTypes_[idx] == -1 {
+                    // solid cell, check neighbors
+                    var neighbors = [idx - 1, idx + 1, idx - niCell_, idx + niCell_];
+                    for nidx in neighbors {
+                        if this.cellTypes_[nidx] == 0 {
+                            // neighbor is fluid, mark as ghost
+                            this.cellTypes_[idx] = -2;
+                            ghostCellm1List.pushBack((atan2(yCells_[idx], this.inputs_.X_REF_ - xCells_[idx]), i, j)); // 0.5 to make the center at x=0.5 when computing theta
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        sort(ghostCellm1List);
 
-        //                 var minDist = 1.0e20;
-        //                 for s in segs {
-        //                     var dist = pointToSegmentDistance(px, py, s);
-        //                     if dist < minDist {
-        //                         minDist = dist;
-        //                     }
-        //                 }
-        //                 if (this.cellTypes_[cell] == -1) {
-        //                     // inside geometry
-        //                     phiSubcells[subidx] = -minDist;
-        //                 } else {
-        //                     // outside geometry
-        //                     phiSubcells[subidx] = minDist;
-        //                 }
-        //             }
-        //             writeln("Cell ", cell, " phiSubcells: ", phiSubcells);
-        //             // Compute the gradient for each subcell
-        //             var gradPhiXSubcells : [0..<5] real(64);
-        //             var gradPhiYSubcells : [0..<5] real(64);
-        //             var gradPhiX_x : [0..<5] real(64);
-        //             var gradPhiX_y : [0..<5] real(64);
-        //             var gradPhiY_x : [0..<5] real(64);
-        //             var gradPhiY_y : [0..<5] real(64);
-        //             for subidx in 0..<5 {
-        //                 var px = xCells[subidx];
-        //                 var py = yCells[subidx];
-        //                 var xStencil : [0..<4] real(64);
-        //                 var yStencil : [0..<4] real(64);
-        //                 var phiStencil : [0..<4] real(64);
-        //                 var idx = 0;
-        //                 for subcell in 0..<5 {
-        //                     if subcell != subidx {
-        //                         xStencil[idx] = xCells[subcell];
-        //                         yStencil[idx] = yCells[subcell];
-        //                         phiStencil[idx] = phiSubcells[subcell];
-        //                         idx += 1;
-        //                     }
-        //                 }
-        //                 var klsInstance = new owned kls(xStencil, yStencil, px, py);
-        //                 klsInstance.computeCoefficients();
-        //                 klsInstance.interpolate(phiStencil);
-        //                 gradPhiXSubcells[subidx] = klsInstance.gradX_;
-        //                 gradPhiYSubcells[subidx] = klsInstance.gradY_;
-        //             }
-        //             writeln("  gradPhiXSubcells: ", gradPhiXSubcells);
-        //             writeln("  gradPhiYSubcells: ", gradPhiYSubcells);
-        //             // Compute the gradient of the gradients
-        //             for subidx in 0..<5 {
-        //                 var px = xCells[subidx];
-        //                 var py = yCells[subidx];
-        //                 var xStencil : [0..<4] real(64);
-        //                 var yStencil : [0..<4] real(64);
-        //                 var gradPhiXStencil : [0..<4] real(64);
-        //                 var gradPhiYStencil : [0..<4] real(64);
-        //                 var idx = 0;
-        //                 for subcell in 0..<5 {
-        //                     if subcell != subidx {
-        //                         xStencil[idx] = xCells[subcell];
-        //                         yStencil[idx] = yCells[subcell];
-        //                         gradPhiXStencil[idx] = gradPhiXSubcells[subcell];
-        //                         gradPhiYStencil[idx] = gradPhiYSubcells[subcell];
-        //                         idx += 1;
-        //                     }
-        //                 }
-        //                 var klsInstance = new owned kls(xStencil, yStencil, px, py);
-        //                 klsInstance.computeCoefficients();
-        //                 klsInstance.interpolate(gradPhiXStencil);
-        //                 gradPhiX_x[subidx] = klsInstance.gradX_;
-        //                 gradPhiX_y[subidx] = klsInstance.gradY_;
-        //                 klsInstance.interpolate(gradPhiYStencil);
-        //                 gradPhiY_x[subidx] = klsInstance.gradX_;
-        //                 gradPhiY_y[subidx] = klsInstance.gradY_;
-        //             }
-        //             writeln("  gradPhiX_x: ", gradPhiX_x);
-        //             writeln("  gradPhiX_y: ", gradPhiX_y);
-        //             writeln("  gradPhiY_x: ", gradPhiY_x);
-        //             writeln("  gradPhiY_y: ", gradPhiY_y);
-        //             // Compute curvature at cell center
-        //             this.curvature_[cell] = gradPhiX_x[4] * gradPhiYSubcells[4]**2
-        //                                     - 2*gradPhiXSubcells[4]*gradPhiYSubcells[4]*gradPhiX_y[4]
-        //                                     + gradPhiY_y[4]*gradPhiXSubcells[4]**2;
-        //             this.curvature_[cell] /= ( (gradPhiXSubcells[4]**2 + gradPhiYSubcells[4]**2)**1.5 );
-        //             writeln("  curvature: ", this.curvature_[cell]);
-        //         }
-        //     }
-        // }
+        this.ghostCellm1Dom_ = {0..<ghostCellm1List.size};
+        forall i in this.ghostCellm1Dom_ {
+            this.ghostCellm1IJ_[i][0] = ghostCellm1List[i][1];
+            this.ghostCellm1IJ_[i][1] = ghostCellm1List[i][2];
+            this.ghostCellm1Indices_[i] = iiCell(ghostCellm1IJ_[i][0], ghostCellm1IJ_[i][1]);
+        }
+
+        this.ghostCellsm1NearestFluidCellsCx_dom_ = {0..<ghostCellm1Dom_.size, 0..<this.nkls_};
     }
 
     proc computeIBnormals() {
@@ -802,6 +741,85 @@ class meshData {
             klsInstance.computeCoefficients();
             const curvature = klsInstance.interpolate(stencilCellsCurvature);
             this.ghostCells_curvature_bi_[i] = curvature;
+        }
+
+        // loop over ghost cells -1 to compute normals
+        forall i in 0..<ghostCellm1Dom_.size {
+            const ghostCell = ghostCellm1Indices_[i];
+            const ox = xCells_[ghostCell];
+            const oy = yCells_[ghostCell];
+            var min_d = 1.0e20;
+            var best_x = ox;
+            var best_y = oy;
+            for s in segs {
+                var cxp = 0.0;
+                var cyp = 0.0;
+                var d = project_to_seg(ox, oy, s, cxp, cyp);
+                if d < min_d {
+                    min_d = d;
+                    best_x = cxp;
+                    best_y = cyp;
+                }
+            }
+            const vx = best_x - ox;
+            const vy = best_y - oy;
+            const norm = sqrt(vx*vx + vy*vy);
+            const nx = vx / norm;
+            const ny = vy / norm;
+            this.ghostCellsm1_nx_bi_[i] = nx;
+            this.ghostCellsm1_ny_bi_[i] = ny;
+            this.ghostCellsm1_x_mirror_[i] = best_x + vx;
+            this.ghostCellsm1_y_mirror_[i] = best_y + vy;
+            this.ghostCellsm1_x_bi_[i] = best_x;
+            this.ghostCellsm1_y_bi_[i] = best_y;
+            this.ghostCellsm1_delta_n_[i] = sqrt((this.ghostCellsm1_x_mirror_[i] - ox)**2 + (this.ghostCellsm1_y_mirror_[i] - oy)**2);
+
+            // Find nearest 3 fluid cell
+            var dists = new list((real(64), int));
+            var potentialCells = new set(int);
+            // neighboring fluid cells
+            var neighbors = [ghostCell-1, ghostCell+1, ghostCell-niCell_, ghostCell+niCell_];
+            for nidx in neighbors {
+                potentialCells.add(nidx);
+                // also add their neighbors if fluid
+                var neighborNeighbors = [nidx-1, nidx+1, nidx-niCell_, nidx+niCell_];
+                for nnidx in neighborNeighbors {
+                    potentialCells.add(nnidx);
+                    var nnNeighbors = [nnidx-1, nnidx+1, nnidx-niCell_, nnidx+niCell_];
+                    for nnnidx in nnNeighbors {
+                        potentialCells.add(nnnidx);
+                        var nnnNeighbors = [nnnidx-1, nnnidx+1, nnnidx-niCell_, nnnidx+niCell_];
+                        for nnnnidx in nnnNeighbors {
+                            potentialCells.add(nnnnidx);
+                            var nnnnnNeighbors = [nnnnidx-1, nnnnidx+1, nnnnidx-niCell_, nnnnidx+niCell_];
+                            for nnnnnidx in nnnnnNeighbors {
+                                potentialCells.add(nnnnnidx);
+                                var nnnnnnNeighbors = [nnnnnidx-1, nnnnnidx+1, nnnnnidx-niCell_, nnnnnidx+niCell_];
+                                for nnnnnnidx in nnnnnnNeighbors {
+                                    potentialCells.add(nnnnnnidx);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for pcell in potentialCells {
+                if cellTypes_[pcell] == 1 {
+                    const dx = xCells_[pcell] - this.ghostCellsm1_x_mirror_[i];
+                    const dy = yCells_[pcell] - this.ghostCellsm1_y_mirror_[i];
+                    const dist = sqrt(dx*dx + dy*dy);
+                    dists.pushBack((dist, pcell));
+                }
+            }
+            sort(dists);
+            for j in 0..<this.nkls_ {
+                this.ghostCellsm1NearestFluidCells_[i, j] = dists[j][1];
+                this.ghostCellsm1NearestFluidCellsIJ_[i, j] = (dists[j][1] % niCell_, dists[j][1] / niCell_);
+                this.ghostCellsm1NearestFluidCellsCx_[i, j] = xCells_[dists[j][1]];
+                this.ghostCellsm1NearestFluidCellsCy_[i, j] = yCells_[dists[j][1]];
+            }
+            this.ghostCellsm1kls_[i] = new owned kls(this.ghostCellsm1NearestFluidCellsCx_[i, 0..], this.ghostCellsm1NearestFluidCellsCy_[i, 0..], this.ghostCellsm1_x_mirror_[i], this.ghostCellsm1_y_mirror_[i]);
+            this.ghostCellsm1kls_[i]!.computeCoefficients();
         }
 
 

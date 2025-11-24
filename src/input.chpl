@@ -25,7 +25,7 @@ config const K4 : real(64);
 config const CFL : real(64);
 config const CFL_RAMP_FACTOR : real(64);
 config const CFL_RAMP_IT : int;
-config const CFL_RAMP_FINAL : real(64);
+config const CFL_RAMP_MAX : real(64);
 config const OMEGA : real(64);
 config const IT_MAX : int;
 config const CONV_TOL : real(64);
@@ -65,7 +65,7 @@ record inputsConfig {
     var CFL_ : real(64) = CFL;
     var CFL_RAMP_FACTOR_ : real(64) = CFL_RAMP_FACTOR;
     var CFL_RAMP_IT_ : int = CFL_RAMP_IT;
-    var CFL_RAMP_FINAL_ : real(64) = CFL_RAMP_FINAL;
+    var CFL_RAMP_MAX_ : real(64) = CFL_RAMP_MAX;
     var OMEGA_ : real(64) = OMEGA;
     var IT_MAX_ : int = IT_MAX;
     var CONV_TOL_ : real(64) = CONV_TOL;
@@ -112,7 +112,7 @@ record inputsConfig {
         writeln("CFL = ", CFL);
         writeln("CFL_RAMP_FACTOR = ", CFL_RAMP_FACTOR);
         writeln("CFL_RAMP_IT = ", CFL_RAMP_IT);
-        writeln("CFL_RAMP_FINAL = ", CFL_RAMP_FINAL);
+        writeln("CFL_RAMP_MAX = ", CFL_RAMP_MAX);
         writeln("OMEGA = ", OMEGA);
         writeln("IT_MAX = ", IT_MAX);
         writeln("CONV_TOL = ", CONV_TOL);

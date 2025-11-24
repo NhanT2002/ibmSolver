@@ -111,7 +111,7 @@ class fullPotentialTemporalDiscretization {
 
                 const leftCell = cellIndex - 1;
                 const leftCellFVM = cellIndexFVM - 1;
-                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1  || this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == -2 {
                     this.A_petsc.set(2*cellIndex, 2*leftCell, 0.0);
                     this.A_petsc.set(2*cellIndex, 2*leftCell+1, 0.0);
                     this.A_petsc.set(2*cellIndex+1, 2*leftCell+1, 0.0);
@@ -119,7 +119,7 @@ class fullPotentialTemporalDiscretization {
 
                 const rightCell = cellIndex + 1;
                 const rightCellFVM = cellIndexFVM + 1;
-                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == -2 {
                     this.A_petsc.set(2*cellIndex, 2*rightCell, 0.0);
                     this.A_petsc.set(2*cellIndex, 2*rightCell+1, 0.0);
                     this.A_petsc.set(2*cellIndex+1, 2*rightCell+1, 0.0);
@@ -127,7 +127,7 @@ class fullPotentialTemporalDiscretization {
 
                 const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
                 const bottomCellFVM = cellIndexFVM - this.spatialDisc_.niCellWithGhosts_;
-                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == -2 {
                     this.A_petsc.set(2*cellIndex, 2*bottomCell, 0.0);
                     this.A_petsc.set(2*cellIndex, 2*bottomCell+1, 0.0);
                     this.A_petsc.set(2*cellIndex+1, 2*bottomCell+1, 0.0);
@@ -135,7 +135,7 @@ class fullPotentialTemporalDiscretization {
 
                 const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
                 const topCellFVM = cellIndexFVM + this.spatialDisc_.niCellWithGhosts_;
-                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == -2 {
                     this.A_petsc.set(2*cellIndex, 2*topCell, 0.0);
                     this.A_petsc.set(2*cellIndex, 2*topCell+1, 0.0);
                     this.A_petsc.set(2*cellIndex+1, 2*topCell+1, 0.0);
@@ -149,13 +149,13 @@ class fullPotentialTemporalDiscretization {
 
     proc computeJacobian() {
         this.A_petsc.zeroEntries();
-        const dt = this.inputs_.CFL_;
 
         forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                const dt = this.dtCells_[cellIndexFVM];
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != -2) {
                     // Diagonal set to 1
                     this.A_petsc.set(2*cellIndex, 2*cellIndex, 1.0);
                     this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, 1.0);
@@ -179,7 +179,7 @@ class fullPotentialTemporalDiscretization {
                 
                 // Diagonal terms
                 this.A_petsc.set(2*cellIndex, 2*cellIndex, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]/dt);
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, 1.0/dt);
+                this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]/dt);
 
                 // dR0/drho_i terms
                 this.A_petsc.add(2*cellIndex, 2*cellIndex, -this.spatialDisc_.dF0Idrho_[leftFace] + this.spatialDisc_.dF0Idrho_[rightFace] - this.spatialDisc_.dF0Jdrho_[bottomFace] + this.spatialDisc_.dF0Jdrho_[topFace]);
@@ -216,37 +216,37 @@ class fullPotentialTemporalDiscretization {
                 this.A_petsc.add(2*cellIndex, 2*cellIndex+1, -dF0dphi_left + dF0dphi_right - dF0dphi_bottom + dF0dphi_top);
 
                 // dR1/drho_i terms
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex, this.spatialDisc_.rhorho_[cellIndexFVM]**(this.inputs_.GAMMA_-2.0) / this.inputs_.MACH_**2);
+                this.A_petsc.set(2*cellIndex+1, 2*cellIndex, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*this.spatialDisc_.rhorho_[cellIndexFVM]**(this.inputs_.GAMMA_-2.0) / this.inputs_.MACH_**2);
 
                 // dR1/dphi_i terms
-                this.A_petsc.add(2*cellIndex+1, 2*cellIndex+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.si_[cellIndexFVM] + this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.sj_[cellIndexFVM]));
+                this.A_petsc.add(2*cellIndex+1, 2*cellIndex+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*(this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.si_[cellIndexFVM] + this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.sj_[cellIndexFVM]));
 
                 
-                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == -2 {
                     const leftCell = cellIndex - 1;
                     // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*leftCell+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.mi_[cellIndexFVM]));
+                    this.A_petsc.set(2*cellIndex+1, 2*leftCell+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*(this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.mi_[cellIndexFVM]));
                     // dR0/dphi_j terms
                     this.A_petsc.set(2*cellIndex, 2*leftCell+1, dF0dphi_left);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == -2 {
                     const rightCell = cellIndex + 1;
                     // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*rightCell+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.ni_[cellIndexFVM]));
+                    this.A_petsc.set(2*cellIndex+1, 2*rightCell+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*(this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.ni_[cellIndexFVM]));
                     // dR0/dphi_j terms
                     this.A_petsc.set(2*cellIndex, 2*rightCell+1, -dF0dphi_right);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == -2 {
                     const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
                     // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*bottomCell+1, (this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.mj_[cellIndexFVM]));
+                    this.A_petsc.set(2*cellIndex+1, 2*bottomCell+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*(this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.mj_[cellIndexFVM]));
                     // dR0/dphi_j terms
                     this.A_petsc.set(2*cellIndex, 2*bottomCell+1, dF0dphi_bottom);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 {
+                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 || this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 0 || this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == -2 {
                     const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
                     // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*topCell+1, (this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.nj_[cellIndexFVM]));
+                    this.A_petsc.set(2*cellIndex+1, 2*topCell+1, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]*(this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.nj_[cellIndexFVM]));
                     // dR0/dphi_j terms
                     this.A_petsc.set(2*cellIndex, 2*topCell+1, -dF0dphi_top);
                 }
@@ -257,11 +257,11 @@ class fullPotentialTemporalDiscretization {
     }
 
     proc compute_dt() {
-        this.dtCells_ = 1.0e20;
+        this.dtCells_ = this.inputs_.CFL_;
         forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != -2) {
                     continue;
                 }
                 const lambdaI = this.spatialDisc_.LambdaI_[cellIndexFVM];
@@ -279,6 +279,7 @@ class fullPotentialTemporalDiscretization {
     proc eulerStep() {
 
         this.spatialDisc_.run();
+        this.compute_dt();
         this.computeJacobian();
         forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
@@ -299,6 +300,7 @@ class fullPotentialTemporalDiscretization {
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
                 this.spatialDisc_.rhorho_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex);
                 this.spatialDisc_.phiphi_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex+1);
+                this.spatialDisc_.phi_t_[cellIndexFVM] = this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex+1) / this.dtCells_[cellIndexFVM];
 
                 // if cellIndex == 22015 {
                 //     writeln("  cellIndex = ", cellIndex,
@@ -378,6 +380,7 @@ class fullPotentialTemporalDiscretization {
         var time: stopwatch;
         var normalize_res0 = 1e12;
         var normalize_res1 = 1e12;
+        var current_normalize_res0 = 1e12;
         var firstRes0 = 0.0;
         var firstRes1 = 0.0;
 
@@ -395,10 +398,17 @@ class fullPotentialTemporalDiscretization {
 
             const res0 = l2Norm(this.spatialDisc_.Rc0_);
             const res1 = l2Norm(this.spatialDisc_.Rc1_);
+            const dphidt_norm = l2Norm(this.spatialDisc_.phi_t_);
 
             if this.it_ == 1 {
                 firstRes0 = res0;
                 firstRes1 = res1;
+            }
+
+            current_normalize_res0 = res0 / firstRes0;
+            
+            if this.it_ > this.inputs_.CFL_RAMP_IT_ {
+                this.inputs_.CFL_ = min(this.inputs_.CFL_ * abs(normalize_res0 / current_normalize_res0), this.inputs_.CFL_RAMP_MAX_);
             }
 
 
@@ -412,7 +422,7 @@ class fullPotentialTemporalDiscretization {
 
             writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Res: ", res0, ", ", res1, 
             " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm, " GMRES its: ", its, " Reason: ", reason, 
-            " Norm Res: ", normalize_res0, ", ", normalize_res1);
+            " Norm Res: ", normalize_res0, ", ", normalize_res1, " CFL: ", this.inputs_.CFL_, " dphidt norm: ", dphidt_norm);
 
             this.timeList.pushBack(time.elapsed());
             this.itList.pushBack(this.it_);
@@ -427,8 +437,8 @@ class fullPotentialTemporalDiscretization {
                 this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, clList, cdList, cmList);
             }
         }
-        // writeln("jacobian = ");
-        // this.A_petsc.matView();
+        writeln("jacobian = ");
+        this.A_petsc.matView();
         // writeln("final delta rho and delta phi ");
         // for j in 0..<this.spatialDisc_.mesh_.njCell_ {
         //     for i in 0..<this.spatialDisc_.mesh_.niCell_ {
