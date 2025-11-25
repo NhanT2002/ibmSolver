@@ -88,7 +88,7 @@ def readGeom(filename) :
 
     return data
 
-data = readCGNS('../output/output_12.cgns')
+data = readCGNS('../output/output_15.cgns')
 data2 = readCGNS('../output/output_10.cgns')
 
 # data = readCGNS('../output/mesh_0-01/M05_A125.cgns')
