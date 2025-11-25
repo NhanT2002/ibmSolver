@@ -160,7 +160,34 @@ class cgnsFlowWriter_c {
             cgnsFile_.addFieldSolution(wallBaseId, zoneId, solIDcc, name, values);
         }
 
-        writeln("CGNS file written to ", cgnsFileName_);
+        writeln("CGNS wall file written to ", cgnsFileName_);
+    }
+
+    proc writeWall2ToCGNS(meshData_ : meshData, dom: domain(1), fieldMap: map(string, [dom] real(64))) {
+
+        const wallBaseName = "WallBase2";
+        const cellDim: c_int = 1;      // 1D elements (lines)
+        const physDim: c_int = 2;      // 2D space (x, y)
+        const wallBaseId = cgnsFile_.createBase(wallBaseName, cellDim, physDim);
+
+        const zoneName : string = "ZoneWall";
+        var size : [0..2] cgsize_t;
+        size[0] = meshData_.ghostCellm1Dom_.size;
+        size[1] = meshData_.ghostCellm1Dom_.size-1;
+        size[2] = 0;
+
+        zoneId = cgnsFile_.createZone(wallBaseId, zoneName, size, Structured);
+
+        cgnsFile_.writeGridCoordinates(wallBaseId, zoneId, meshData_.ghostCellsm1_x_bi_, meshData_.ghostCellsm1_y_bi_, meshData_.ghostCellsm1_z_bi_);
+
+        solIDcc = cgnsFile_.addNodeCenteredSolution(wallBaseId, zoneId, "WALL_FLOW_SOLUTION_NC");
+
+        for name in fieldMap.keys() {
+            var values = try! fieldMap[name];
+            cgnsFile_.addFieldSolution(wallBaseId, zoneId, solIDcc, name, values);
+        }
+
+        writeln("CGNS wall2 file written to ", cgnsFileName_);
 
 
         cgnsFile_.close();
@@ -205,19 +232,27 @@ class cgnsFlowWriter_c {
         const maxIter = iterations.size;
 
         var iterationsArray: [0..<maxIter] int;
+        var convData: [0..<nMetrics, 0..<maxIter] real(64);
         forall i in 0..<maxIter {
             iterationsArray[i] = iterations[i];
+            convData[0, i] = time[i];
+            convData[1, i] = res0[i];
+            convData[2, i] = res1[i];
+            convData[3, i] = res2[i];
+            convData[4, i] = res3[i];
+            convData[5, i] = cls[i];
+            convData[6, i] = cds[i];
+            convData[7, i] = cms[i];
         }
 
-        var convData: [0..<nMetrics, 0..<maxIter] real(64);
-        convData[0, ..] = time;
-        convData[1, ..] = res0;
-        convData[2, ..] = res1;
-        convData[3, ..] = res2;
-        convData[4, ..] = res3;
-        convData[5, ..] = cls;
-        convData[6, ..] = cds;
-        convData[7, ..] = cms;
+        // convData[0, ..] = time;
+        // convData[1, ..] = res0;
+        // convData[2, ..] = res1;
+        // convData[3, ..] = res2;
+        // convData[4, ..] = res3;
+        // convData[5, ..] = cls;
+        // convData[6, ..] = cds;
+        // convData[7, ..] = cms;
 
         var names = ["Time", "Res0", "Res1", "Res2", "Res3", "Cl", "Cd", "Cm"];
 
@@ -237,18 +272,18 @@ class cgnsFlowWriter_c {
         const nMetrics = 7;
         const maxIter = iterations.size;
 
+        var convData: [0..<nMetrics, 0..<maxIter] real(64);
+
         var iterationsArray: [0..<maxIter] int;
         forall i in 0..<maxIter {
             iterationsArray[i] = iterations[i];
+            convData[0, i] = time[i];
+            convData[1, i] = res0[i];
+            convData[2, i] = res1[i];
+            convData[3, i] = cls[i];
+            convData[4, i] = cds[i];
+            convData[5, i] = cms[i];
         }
-
-        var convData: [0..<nMetrics, 0..<maxIter] real(64);
-        convData[0, ..] = time;
-        convData[1, ..] = res0;
-        convData[2, ..] = res1;
-        convData[3, ..] = cls;
-        convData[4, ..] = cds;
-        convData[5, ..] = cms;
 
         var names = ["Time", "Res0", "Res1", "Cl", "Cd", "Cm"];
 
