@@ -57,12 +57,14 @@ record inputsConfig {
     var Y_TE_ : real(64) = Y_TE;
 
     var MACH_ : real(64) = MACH;
+    var MACH_2_ : real(64) = MACH * MACH;
     var ALPHA_ : real(64) = ALPHA;
     var GAMMA_ : real(64) = GAMMA;
     var K2_ : real(64) = K2;
     var K4_ : real(64) = K4;
 
     var CFL_ : real(64) = CFL;
+    var CFL_2_ : real(64) = CFL * CFL;
     var CFL_RAMP_FACTOR_ : real(64) = CFL_RAMP_FACTOR;
     var CFL_RAMP_IT_ : int = CFL_RAMP_IT;
     var CFL_RAMP_FINAL_ : real(64) = CFL_RAMP_FINAL;
@@ -123,29 +125,30 @@ record inputsConfig {
         writeln("GMRES_DTOL = ", GMRES_DTOL);
         writeln("GMRES_MAXIT = ", GMRES_MAXIT);
         writeln("GMRES_RESTART = ", GMRES_RESTART);
+    }
+}
 
-
-
-        if FLOW == "euler" {
-            RHO_INF_ = 1.0;
-            P_INF_ = 1.0;
-            C_INF_ = sqrt(GAMMA_ * P_INF_ / RHO_INF_);
-            U_INF_ = MACH_ * C_INF_* cos(ALPHA_ * (pi / 180.0));
-            V_INF_ = MACH_ * C_INF_* sin(ALPHA_ * (pi / 180.0));
-            E_INF_ = P_INF_ / ((GAMMA_ - 1.0) * RHO_INF_) + 0.5 * (U_INF_**2 + V_INF_**2);
-            Q_INF_ = 0.5 * RHO_INF_ * (U_INF_**2 + V_INF_**2);
-            S_REF_ = 1.0; // Reference area
-            C_REF_ = 1.0; // Reference chord
-        }
-        else {
-            RHO_INF_ = 1.0;
-            P_INF_ = RHO_INF_**GAMMA_ / (GAMMA_ * MACH_**2);
-            C_INF_ = sqrt((RHO_INF_**(GAMMA_ - 1.0)) / MACH_**2);
-            U_INF_ = MACH_ * C_INF_* cos(ALPHA_ * (pi / 180.0));
-            V_INF_ = MACH_ * C_INF_* sin(ALPHA_ * (pi / 180.0));
-            Q_INF_ = 0.5 * RHO_INF_ * (U_INF_**2 + V_INF_**2);
-            S_REF_ = 1.0; // Reference area
-            C_REF_ = 1.0; // Reference chord
-        }
+proc ref inputsConfig.initializeFlowField() {
+    // Initial flow field based on freestream conditions
+    if this.FLOW_ == "euler" {
+        this.RHO_INF_ = 1.0;
+        this.P_INF_ = 1.0;
+        this.C_INF_ = sqrt(this.GAMMA_ * this.P_INF_ / this.RHO_INF_);
+        this.U_INF_ = this.MACH_ * this.C_INF_* cos(this.ALPHA_ * (pi / 180.0));
+        this.V_INF_ = this.MACH_ * this.C_INF_* sin(this.ALPHA_ * (pi / 180.0));
+        this.E_INF_ = this.P_INF_ / ((this.GAMMA_ - 1.0) * this.RHO_INF_) + 0.5 * (this.U_INF_**2 + this.V_INF_**2);
+        this.Q_INF_ = 0.5 * this.RHO_INF_ * (this.U_INF_**2 + this.V_INF_**2);
+        this.S_REF_ = 1.0; // Reference area
+        this.C_REF_ = 1.0; // Reference chord
+    }
+    else {
+        this.RHO_INF_ = 1.0;
+        this.C_INF_ = 1.0;
+        this.P_INF_ = this.RHO_INF_ * this.C_INF_**2 / this.GAMMA_;
+        this.U_INF_ = this.MACH_ * this.C_INF_* cos(this.ALPHA_ * (pi / 180.0));
+        this.V_INF_ = this.MACH_ * this.C_INF_* sin(this.ALPHA_ * (pi / 180.0));
+        this.Q_INF_ = 0.5 * this.RHO_INF_ * (this.U_INF_**2 + this.V_INF_**2);
+        this.S_REF_ = 1.0; // Reference area
+        this.C_REF_ = 1.0; // Reference chord
     }
 }
