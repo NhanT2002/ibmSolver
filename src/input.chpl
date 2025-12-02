@@ -40,6 +40,8 @@ config const IT_MAX : int;
 config const CONV_TOL : real(64);
 config const RESIDUAL_SMOOTHING : bool;
 
+config const SOLVER : string;
+
 config const GMRES_PRECON : string;
 config const GMRES_RTOL : real(64);
 config const GMRES_ATOL : real(64);
@@ -89,6 +91,8 @@ record inputsConfig {
     var IT_MAX_ : int = IT_MAX;
     var CONV_TOL_ : real(64) = CONV_TOL;
     var RESIDUAL_SMOOTHING_ : bool = RESIDUAL_SMOOTHING;
+
+    var SOLVER_ : string = SOLVER;
 
     var GMRES_PRECON_ : string = GMRES_PRECON;
     var GMRES_RTOL_: real(64) = GMRES_RTOL;
@@ -141,6 +145,8 @@ record inputsConfig {
         writeln("IT_MAX = ", IT_MAX);
         writeln("CONV_TOL = ", CONV_TOL);
         writeln("RESIDUAL_SMOOTHING = ", RESIDUAL_SMOOTHING);
+
+        writeln("SOLVER = ", SOLVER);
 
         writeln("GMRES_RTOL = ", GMRES_RTOL);
         writeln("GMRES_ATOL = ", GMRES_ATOL);

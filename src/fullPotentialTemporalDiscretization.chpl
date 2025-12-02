@@ -37,6 +37,20 @@ class fullPotentialTemporalDiscretization {
     const a4 = 0.5; const b4 = 0.0;
     const a5 = 1.0; const b5 = 0.44;
 
+    var dom_ : domain(1) = {1..0};
+
+    var Lx_a_ : [dom_] real(64);
+    var Lx_b_ : [dom_] real(64);
+    var Lx_c_ : [dom_] real(64);
+    var Lx_d_ : [dom_] real(64);
+
+    var Ly_a_ : [dom_] real(64);
+    var Ly_b_ : [dom_] real(64);
+    var Ly_c_ : [dom_] real(64);
+    var Ly_d_ : [dom_] real(64);
+
+    var x_ : [dom_] real(64);
+
     var A_petsc : owned PETSCmatrix_c;
     var x_petsc : owned PETSCvector_c;
     var b_petsc : owned PETSCvector_c;
@@ -65,6 +79,7 @@ class fullPotentialTemporalDiscretization {
         this.inputs_ = inputs;
 
         this.cells_dom_ = this.spatialDisc_.cell_dom_with_ghosts_;
+        this.dom_ = this.spatialDisc_.mesh_.cell_dom_;
 
         const M = this.spatialDisc_.mesh_.nCell_;
         const N = this.spatialDisc_.mesh_.nCell_;
@@ -308,6 +323,239 @@ class fullPotentialTemporalDiscretization {
         return (its, reason);
     }
 
+    proc computeLx_Ly() {
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+                const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                    // Diagonal set to 1
+                    this.Lx_b_[cellIndex] = 1.0;
+                    continue;
+                }
+
+                const dt = this.spatialDisc_.dtCells_[cellIndexFVM];
+                const leftCellFVM = cellIndexFVM - 1;
+                const rightCellFVM = cellIndexFVM + 1;
+
+                const u = this.spatialDisc_.uu_[cellIndexFVM];
+                const rho = this.spatialDisc_.rhorho_[cellIndexFVM];
+                const m_i = this.spatialDisc_.mi_[cellIndexFVM];
+                const n_i = this.spatialDisc_.ni_[cellIndexFVM];
+                const s_i = this.spatialDisc_.si_[cellIndexFVM];
+                const beta = this.spatialDisc_.beta_[cellIndexFVM];
+
+                const rho_left_face = 0.5*(this.spatialDisc_.rhorho_[leftCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+                const rho_right_face = 0.5*(this.spatialDisc_.rhorho_[rightCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+
+                const dx_left = this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.xCellsWithGhosts_[leftCellFVM];
+                const dx_right = this.spatialDisc_.xCellsWithGhosts_[rightCellFVM] - this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM];
+                const avg_dx_cell = this.spatialDisc_.mesh_.avgFaceAreaJ_[cellIndex];
+
+                // diagonal term
+                const Jij_x = 1.0 / dt**2 + (u*s_i) / dt - ((-rho_right_face/dx_right - rho_left_face/dx_left) / avg_dx_cell) / beta;
+                this.Lx_b_[cellIndex] = Jij_x;
+
+                // left neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] != 9 {
+                    const Jim1j = (u*m_i) / dt - (rho_left_face/dx_left) / (beta * avg_dx_cell);
+                    this.Lx_a_[cellIndex] = Jim1j;
+                }
+
+                // right neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] != 9 {
+                    const Jip1j = (u*n_i) / dt - (rho_right_face/dx_right) / (beta * avg_dx_cell);
+                    this.Lx_c_[cellIndex] = Jip1j;
+                }
+            }
+        }
+        forall i in 0..<this.spatialDisc_.mesh_.niCell_ {
+            for j in 0..<this.spatialDisc_.mesh_.njCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(j, i);
+                const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                    // Diagonal set to 1
+                    this.Ly_b_[cellIndex] = 1.0;
+                    continue;
+                }
+
+                const dt = this.spatialDisc_.dtCells_[cellIndexFVM];
+                const bottomCellFVM = cellIndexFVM - this.spatialDisc_.niCellWithGhosts_;
+                const topCellFVM = cellIndexFVM + this.spatialDisc_.niCellWithGhosts_;
+
+                const v = this.spatialDisc_.vv_[cellIndexFVM];
+                const rho = this.spatialDisc_.rhorho_[cellIndexFVM];
+                const m_j = this.spatialDisc_.mj_[cellIndexFVM];
+                const n_j = this.spatialDisc_.nj_[cellIndexFVM];
+                const s_j = this.spatialDisc_.sj_[cellIndexFVM];
+                const beta = this.spatialDisc_.beta_[cellIndexFVM];
+
+                const rho_bottom_face = 0.5*(this.spatialDisc_.rhorho_[bottomCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+                const rho_top_face = 0.5*(this.spatialDisc_.rhorho_[topCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+
+                const dy_bottom = this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.yCellsWithGhosts_[bottomCellFVM];
+                const dy_top = this.spatialDisc_.yCellsWithGhosts_[topCellFVM] - this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM];
+
+                const avg_dy_cell = this.spatialDisc_.mesh_.avgFaceAreaI_[this.spatialDisc_.mesh_.iiCell(i, j)];
+
+                // diagonal term
+                const Jij_y = 1.0 / dt**2 + (v*s_j) / dt - ((-rho_top_face/dy_top - rho_bottom_face/dy_bottom) / avg_dy_cell) / beta;
+                this.Ly_b_[cellIndex] = Jij_y;
+
+                // bottom neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] != 9 {
+                    const Jijm1 = (v*m_j) / dt - (rho_bottom_face/dy_bottom) / (beta * avg_dy_cell);
+                    this.Ly_a_[cellIndex] = Jijm1;
+                }
+
+                // top neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] != 9 {
+                    const Jijp1 = (v*n_j) / dt - (rho_top_face/dy_top) / (beta * avg_dy_cell);
+                    this.Ly_c_[cellIndex] = Jijp1;
+                }
+
+            }
+        }
+    }
+
+    proc printArray(inputArray : [dom_] real(64), niCell : int, njCell : int, arrayName : string) {
+        writeln(arrayName, ":");
+        for j in 0..<njCell {
+            write("Row ", j, ": ");
+            writeln(inputArray[this.spatialDisc_.mesh_.iiCell(0, j)..this.spatialDisc_.mesh_.iiCell(niCell, j)]);
+        }
+    }
+
+    proc reArrangeRow2ColumnMajor(inputArray : [dom_] real(64)) {
+        var outputArray : [dom_] real(64);
+
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+                const cellIndexColumnMajor = this.spatialDisc_.mesh_.iiCell(j, i);
+
+                outputArray[cellIndexColumnMajor] = inputArray[cellIndex];
+            }
+        }
+
+        // printArray(inputArray, this.spatialDisc_.mesh_.niCell_, this.spatialDisc_.mesh_.njCell_, "inputArray (row-major)");
+        // printArray(outputArray, this.spatialDisc_.mesh_.niCell_, this.spatialDisc_.mesh_.njCell_, "outputArray (column-major)");
+
+        return outputArray;
+    }
+
+    proc eulerStepThomas() {
+        this.spatialDisc_.run();
+        this.computeLx_Ly();
+
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+                const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+
+                this.Lx_d_[cellIndex] = this.spatialDisc_.R0_[cellIndexFVM];
+            }
+        }
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            const cells = this.spatialDisc_.mesh_.iiCell(0, j)..this.spatialDisc_.mesh_.iiCell(this.spatialDisc_.mesh_.niCell_-1, j);
+            thomasAlgorithm(this.Lx_a_[cells], this.Lx_b_[cells], this.Lx_c_[cells], this.Lx_d_[cells], this.x_[cells]);
+            // if j == 52 {
+            //     writeln("After Thomas solve for row ", j);
+            //     writeln("Lx_a_: ", this.Lx_a_[cells]);
+            //     writeln("Lx_b_: ", this.Lx_b_[cells]);
+            //     writeln("Lx_c_: ", this.Lx_c_[cells]);
+            //     writeln("Lx_d_: ", this.Lx_d_[cells]);
+            //     writeln("x_ after Lx solve for row ", j, ": ", this.x_[cells]);
+            // }
+        }
+        // writeln("Lx_a_: ", this.Lx_a_);
+        // writeln("Lx_b_: ", this.Lx_b_);
+        // writeln("Lx_c_: ", this.Lx_c_);
+        // writeln("Lx_d_: ", this.Lx_d_);
+        // writeln("x_ after Lx solve: ", this.x_);
+
+        // Verify that A*x = b
+        // var Ax : [dom_] real(64);
+        // forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+        //     for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+        //         const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+        //         Ax[cellIndex] = this.Lx_a_[cellIndex] * this.x_[cellIndex - 1] + this.Lx_b_[cellIndex] * this.x_[cellIndex] + this.Lx_c_[cellIndex] * this.x_[cellIndex + 1];
+        //         if i == 0 && j == 52 {
+        //             writeln("Checking Lx at cellIndex ", cellIndex);
+        //             writeln("Lx_a_[", cellIndex, "] * x_[", cellIndex - 1, "] + Lx_b_[", cellIndex, "] * x_[", cellIndex, "] + Lx_c_[", cellIndex, "] * x_[", cellIndex + 1, "] = ",
+        //             this.Lx_a_[cellIndex], " * ", this.x_[cellIndex - 1], " + ", this.Lx_b_[cellIndex], " * ", this.x_[cellIndex], " + ", this.Lx_c_[cellIndex], " * ", this.x_[cellIndex + 1], " = ", Ax[cellIndex],
+        //             " (should be ", this.Lx_d_[cellIndex], ")");
+        //         }
+        //     }
+        // }
+        // writeln("Ax after Lx solve: ", Ax);
+        // printArray(Ax, this.spatialDisc_.mesh_.niCell_, this.spatialDisc_.mesh_.njCell_, "Ax after Lx solve");
+
+        this.x_ = reArrangeRow2ColumnMajor(this.x_);
+
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+
+                this.Ly_d_[cellIndex] = this.x_[cellIndex];
+            }
+        }
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            const cells = this.spatialDisc_.mesh_.iiCell(0, j)..this.spatialDisc_.mesh_.iiCell(this.spatialDisc_.mesh_.niCell_-1, j);
+            thomasAlgorithm(this.Ly_a_[cells], this.Ly_b_[cells], this.Ly_c_[cells], this.Ly_d_[cells], this.x_[cells]);
+            // if j == 52 {
+            //     writeln("After Thomas solve for row ", j);
+            //     writeln("Lx_a_: ", this.Lx_a_[cells]);
+            //     writeln("Lx_b_: ", this.Lx_b_[cells]);
+            //     writeln("Lx_c_: ", this.Lx_c_[cells]);
+            //     writeln("Lx_d_: ", this.Lx_d_[cells]);
+            //     writeln("x_ after Lx solve for row ", j, ": ", this.x_[cells]);
+            // }
+        }
+        // writeln("Ly_a_: ", this.Ly_a_);
+        // writeln("Ly_b_: ", this.Ly_b_);
+        // writeln("Ly_c_: ", this.Ly_c_);
+        // writeln("Ly_d_: ", this.Ly_d_);
+        this.x_ = reArrangeRow2ColumnMajor(this.x_);
+        // writeln("x_ after Ly solve: ", this.x_);
+
+        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
+            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
+                const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
+                const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+
+                if this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0 {
+                    continue;
+                }
+                
+                // update past time level variables
+                this.spatialDisc_.phiphi_m2_[cellIndexFVM] = this.spatialDisc_.phiphi_m1_[cellIndexFVM];
+                
+                this.spatialDisc_.rhorho_m1_[cellIndexFVM] = this.spatialDisc_.rhorho_[cellIndexFVM];
+                this.spatialDisc_.beta_m1_[cellIndexFVM] = this.spatialDisc_.beta_[cellIndexFVM];
+                this.spatialDisc_.phiphi_m1_[cellIndexFVM] = this.spatialDisc_.phiphi_[cellIndexFVM];
+                this.spatialDisc_.uu_m1_[cellIndexFVM] = this.spatialDisc_.uu_[cellIndexFVM];
+                this.spatialDisc_.vv_m1_[cellIndexFVM] = this.spatialDisc_.vv_[cellIndexFVM];
+
+                // update solution
+                this.spatialDisc_.phiphi_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_[cellIndex];
+                this.spatialDisc_.phi_minus_phi_m1_[cellIndexFVM] = this.spatialDisc_.phiphi_[cellIndexFVM] - this.spatialDisc_.phiphi_m1_[cellIndexFVM];
+
+                // if cellIndex == 27756 {
+                //     writeln("Updating cell ", cellIndex, ": phi = ", this.spatialDisc_.phiphi_[cellIndexFVM],
+                //     " uu = ", this.spatialDisc_.uu_[cellIndexFVM],
+                //     " vv = ", this.spatialDisc_.vv_[cellIndexFVM],
+                //     " rho = ", this.spatialDisc_.rhorho_[cellIndexFVM],
+                //     " delta phi = ", this.x_petsc.get(cellIndex),
+                //     " residual = ", this.spatialDisc_.R0_[cellIndexFVM]);
+                // }
+
+            }
+        }
+
+        return (1, "Thomas");
+    }
+
     proc updateWakeCirculation() {
         this.spatialDisc_.computeCirculation();
         this.spatialDisc_.wakeCirculation_[0] = this.spatialDisc_.circulation_;
@@ -349,12 +597,20 @@ class fullPotentialTemporalDiscretization {
         this.wakeFaces_dom_ = this.spatialDisc_.wakeFaces_dom_;
         this.initializeJacobian();
         
+
+        var its : int;
+        var reason : string;
         while (normalize_res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(normalize_res0) == false) {
             this.it_ += 1;
             
             time.start();
-
-            const (its, reason) = this.eulerStep();
+            if this.inputs_.SOLVER_ == "gmres" {
+                (its, reason) = this.eulerStep();
+            } else if this.inputs_.SOLVER_ == "thomas" {
+                (its, reason) = this.eulerStepThomas();
+            } else {
+                halt("Unknown solver type: " + this.inputs_.SOLVER_);
+            }
             if this.inputs_.ALPHA_ != 0.0 {
                 this.updateWakeCirculation();
             }

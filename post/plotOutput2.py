@@ -207,9 +207,9 @@ def readGeom(filename) :
 
     return data
 
-data = readCGNS('../output/output_109.cgns')
+data = readCGNS('../output/output_165.cgns')
 data2 = readCGNSEuler('../output/output_36.cgns')
-data3 = readCGNSEuler('../output/output_41.cgns')
+data3 = readCGNS('../output/output_175.cgns')
 
 
 # naca0012 = np.loadtxt('../pre/naca0012.dat')

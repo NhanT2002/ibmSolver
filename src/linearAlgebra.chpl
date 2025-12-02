@@ -27,7 +27,9 @@ proc GMRES(ref ksp: PETSCksp_c, const ref A: PETSCmatrix_c, const ref b: PETSCve
     //     writeln("GMRES did not converge, reason: ", reason);
     // }
 
-    return (its, reason);
+    const reason_str = reason:string;
+
+    return (its, reason_str);
 
 }
 
@@ -217,26 +219,28 @@ proc thomasAlgorithm(const ref a: [], const ref b: [], const ref c: [], const re
     // c -- super-diagonal (c[n-1] unused)
     // d -- right-hand side
     // x -- solution vector
-    
-    const n = d.size;
 
-    var c_star: [0..n-1] real(64);
-    var d_star: [0..n-1] real(64);
+    const n = d.size;
+    const dom = d.domain;
+
+    var c_star: [dom] real(64);
+    var d_star: [dom] real(64);
 
     // Forward sweep
-    c_star[0] = c[0] / b[0];
-    d_star[0] = d[0] / b[0];
+    c_star[dom.low] = c[dom.low] / b[dom.low];
+    d_star[dom.low] = d[dom.low] / b[dom.low];
 
-    for i in 1..n-1 {
+    for i in (dom.low+1)..dom.high {
         var m = b[i] - a[i] * c_star[i-1];
         c_star[i] = c[i] / m;
         d_star[i] = (d[i] - a[i] * d_star[i-1]) / m;
     }
 
     // Back substitution
-    x[n-1] = d_star[n-1];
-    for i in (n-2)..0 by -1 {
+    x[dom.high] = d_star[dom.high];
+    for i in dom.low..(dom.high-1) by -1 {
         x[i] = d_star[i] - c_star[i] * x[i+1];
     }
+}
 
 }

@@ -66,6 +66,7 @@ class fullPotentialSpatialDiscretization {
 
     var LambdaI_ : [cell_dom_with_ghosts_] real(64);
     var LambdaJ_ : [cell_dom_with_ghosts_] real(64);
+    var dtCells_ : [cell_dom_with_ghosts_] real(64);
 
     var Rd0_ : [cell_dom_with_ghosts_] real(64);
     var Rd1_ : [cell_dom_with_ghosts_] real(64);
@@ -797,23 +798,45 @@ class fullPotentialSpatialDiscretization {
             for i in 0..<this.mesh_.niCell_ {
                 const idxWithGhost = meshIndex2FVMindex(i, j);
                 if this.cellTypesWithGhosts_[idxWithGhost] == 1 {
+                    const dt = this.dtCells_[idxWithGhost];
                     const idx = this.mesh_.iiCell(i, j);
                     const leftFace = i + j*this.mesh_.niNode_;
                     const rightFace = leftFace + 1;
                     const bottomFace = i + j*this.mesh_.niCell_;
                     const topFace = bottomFace + this.mesh_.niCell_;
 
-                    const A = this.inputs_.CFL_ / this.beta_[idxWithGhost] * (this.rhorho_[idxWithGhost] - this.rhorho_m1_[idxWithGhost]) + (this.phiphi_[idxWithGhost] - this.phiphi_m1_[idxWithGhost])
+                    const A = dt / this.beta_[idxWithGhost] * (this.rhorho_[idxWithGhost] - this.rhorho_m1_[idxWithGhost]) + (this.phiphi_[idxWithGhost] - this.phiphi_m1_[idxWithGhost])
                                     + this.beta_m1_[idxWithGhost]/this.beta_[idxWithGhost] * (this.phiphi_[idxWithGhost] - 2.0* this.phiphi_m1_[idxWithGhost] + this.phiphi_m2_[idxWithGhost]);
 
-                    const B = this.inputs_.CFL_ * this.beta_m1_[idxWithGhost]/this.beta_[idxWithGhost] * (this.uu_m1_[idxWithGhost] * this.gradX_phi_minus_phi_m1_[idxWithGhost] 
+                    const B = dt * this.beta_m1_[idxWithGhost]/this.beta_[idxWithGhost] * (this.uu_m1_[idxWithGhost] * this.gradX_phi_minus_phi_m1_[idxWithGhost] 
                                                                                                             + this.vv_m1_[idxWithGhost] * this.gradY_phi_minus_phi_m1_[idxWithGhost]);
 
-                    const C = this.inputs_.CFL_**2 / this.beta_[idxWithGhost] * ((this.F0I_[rightFace] - this.F0I_[leftFace]) / this.mesh_.avgFaceAreaJ_[idx]
+                    const C = dt**2 / this.beta_[idxWithGhost] * ((this.F0I_[rightFace] - this.F0I_[leftFace]) / this.mesh_.avgFaceAreaJ_[idx]
                                                                             + (this.F0J_[topFace] - this.F0J_[bottomFace]) / this.mesh_.avgFaceAreaI_[idx]);
 
-                    this.R0_[idxWithGhost] = (A + B + C) / this.inputs_.CFL_**2;
+                    this.R0_[idxWithGhost] = (A + B + C) / dt**2;
                 }
+            }
+        }
+    }
+
+    proc compute_dt() {
+        forall j in 0..<this.mesh_.njCell_ {
+            for i in 0..<this.mesh_.niCell_ {
+                const idx = this.mesh_.iiCell(i, j);
+                if this.mesh_.cellTypes_[idx] != 1 {
+                    continue;
+                }
+                const idxWithGhost = meshIndex2FVMindex(i, j);
+                const u = this.uu_[idxWithGhost];
+                const v = this.vv_[idxWithGhost];
+                const rho = this.rhorho_[idxWithGhost];
+                const a = rho**((this.inputs_.GAMMA_ - 1.0) / 2.0);
+
+                this.LambdaI_[idxWithGhost] = (abs(u) + a) * this.mesh_.avgFaceAreaI_[idx];
+                this.LambdaJ_[idxWithGhost] = (abs(v) + a) * this.mesh_.avgFaceAreaJ_[idx];
+                // this.dtCells_[idxWithGhost] = this.inputs_.CFL_ * this.mesh_.cellVolumes_[idx] / (this.LambdaI_[idxWithGhost] + this.LambdaJ_[idxWithGhost]);
+                this.dtCells_[idxWithGhost] = this.inputs_.CFL_;
             }
         }
     }
@@ -821,6 +844,7 @@ class fullPotentialSpatialDiscretization {
     proc run() {
         this.updateGhostCells();
         this.updatePrimitiveVariablesFromConserved();
+        this.compute_dt();
         this.compute_fluxes();
         this.compute_residuals();
     }
