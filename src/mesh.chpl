@@ -96,6 +96,7 @@ proc readFullPotentialCGNSFlowField(filename: string) {
     const dsetPhi     = "/Base/Zone/FLOW_SOLUTION_CC/Phi/ data";
     const dsetVelocityX = "/Base/Zone/FLOW_SOLUTION_CC/VelocityX/ data";
     const dsetVelocityY = "/Base/Zone/FLOW_SOLUTION_CC/VelocityY/ data";
+    const dsetGamma = "/WakeBase/ZoneWake/WAKE_FLOW_SOLUTION_NC/gamma/ data";
 
     var file_id = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
     if file_id < 0 then halt("Could not open file: ", filename);
@@ -104,9 +105,10 @@ proc readFullPotentialCGNSFlowField(filename: string) {
     var Phi     = read2DDataset(real(64), file_id, dsetPhi);
     var VelocityX = read2DDataset(real(64), file_id, dsetVelocityX);
     var VelocityY = read2DDataset(real(64), file_id, dsetVelocityY);
+    var WakeGamma = read1DDataset(real(64), file_id, dsetGamma);
 
     H5Fclose(file_id);
-    return (Density, Phi, VelocityX, VelocityY);
+    return (Density, Phi, VelocityX, VelocityY, WakeGamma);
 }
 
 proc readGeometry(filename: string) {
@@ -151,6 +153,8 @@ class meshData {
     var njCell_ : int;
     var nCell_ : int;
     var nFace_ : int;
+    var niCellWithGhosts_ : int;
+    var njCellWithGhosts_ : int;
 
     var node_dom_ : domain(1) = {1..0};
     var xNodes_ : [node_dom_] real(64);
@@ -208,7 +212,7 @@ class meshData {
     var ghostCellsm1_curvature_bi_ : [ghostCellm1Dom_] real(64);
     var ghostCellsm1_delta_n_ : [ghostCellm1Dom_] real(64);
 
-    const nkls_ = 4;
+    var nkls_ : int;
     var ghostCellsNearestFluidCellsCx_dom_ : domain(2) = {1..0, 1..0};
     var ghostCellsNearestFluidCells_ : [ghostCellsNearestFluidCellsCx_dom_] int;
     var ghostCellsNearestFluidCellsIJ_ : [ghostCellsNearestFluidCellsCx_dom_] (int, int);
@@ -224,11 +228,12 @@ class meshData {
     var ghostCellsm1kls_ : [ghostCellm1Dom_] owned kls?;
 
     var LEkls_ : owned kls?;
-    var nearestCellLEIJ_ : [0..<nkls_] (int, int);
-    var nearestCellLE_ : [0..<nkls_] int;
+    var nearestCellLE_dom_ : domain(1) = {1..0};
+    var nearestCellLEIJ_ : [nearestCellLE_dom_] (int, int);
+    var nearestCellLE_ : [nearestCellLE_dom_] int;
     var TEkls_ : owned kls?;
-    var nearestCellTEIJ_ : [0..<nkls_] (int, int);
-    var nearestCellTE_ : [0..<nkls_] int;
+    var nearestCellTEIJ_ : [nearestCellLE_dom_] (int, int);
+    var nearestCellTE_ : [nearestCellLE_dom_] int;
 
 
     proc init(inputs: inputsConfig, X : [] real(64), Y : [] real(64), Z : [] real(64)) {
@@ -245,12 +250,17 @@ class meshData {
         this.njCell_ = njNode_ - 1;
         this.nCell_ = niCell_ * njCell_;
         this.nFace_ = (niCell_+1)*njCell_;
+        this.niCellWithGhosts_ = niCell_ + 4;
+        this.njCellWithGhosts_ = njCell_ + 4;
 
         writeln("Mesh dimensions: niNode = ", niNode_, ", njNode = ", njNode_);
 
         this.node_dom_ = {0..<(niNode_ * njNode_)};
         this.cell_dom_ = {0..<(niCell_ * njCell_)};
         this.face_dom_ = {0..<( (niCell_+1)*njCell_ )};
+
+        this.nkls_ = inputs_.N_KLS_;
+        this.nearestCellLE_dom_ = {0..<(this.nkls_)};
     }
 
     proc computeMetrics() {

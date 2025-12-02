@@ -1,6 +1,6 @@
-FLOW=euler       # euler || fullPotential
+FLOW=fullPotentialEikonal       # euler || fullPotential
 
-MESH_FILENAME=pre/naca/cartesian_mesh_40_refined_4.cgns
+MESH_FILENAME=pre/naca/cartesian_mesh_40.cgns
 GEOMETRY_FILENAME=pre/naca0012_geometry.cgns
 OUTPUT_FILENAME=output/output.cgns
 CGNS_OUTPUT_FREQ=50000
@@ -17,15 +17,15 @@ Y_LE=0.0
 
 N_KLS=6
 
-MACH=0.8
-ALPHA=1.25
+MACH=0.5
+ALPHA=0.0
 GAMMA=1.4
 K2=0.5
 K4=0.015625
 
-CFL=3.6
+CFL=1.0
 OMEGA=1.0
-IT_MAX=500000
+IT_MAX=1
 CONV_TOL=1e-8
 RESIDUAL_SMOOTHING=true
 

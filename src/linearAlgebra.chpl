@@ -211,4 +211,32 @@ proc jacobiSparse(const ref A: [] real(64), const ref b: [] real(64), ref x: [] 
     }
 }
 
+proc thomasAlgorithm(const ref a: [], const ref b: [], const ref c: [], const ref d: [], ref x: []) {
+    // a -- sub-diagonal (a[0] unused)
+    // b -- main diagonal
+    // c -- super-diagonal (c[n-1] unused)
+    // d -- right-hand side
+    // x -- solution vector
+    
+    const n = d.size;
+
+    var c_star: [0..n-1] real(64);
+    var d_star: [0..n-1] real(64);
+
+    // Forward sweep
+    c_star[0] = c[0] / b[0];
+    d_star[0] = d[0] / b[0];
+
+    for i in 1..n-1 {
+        var m = b[i] - a[i] * c_star[i-1];
+        c_star[i] = c[i] / m;
+        d_star[i] = (d[i] - a[i] * d_star[i-1]) / m;
+    }
+
+    // Back substitution
+    x[n-1] = d_star[n-1];
+    for i in (n-2)..0 by -1 {
+        x[i] = d_star[i] - c_star[i] * x[i+1];
+    }
+
 }

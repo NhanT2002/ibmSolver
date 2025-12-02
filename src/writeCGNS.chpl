@@ -193,6 +193,33 @@ class cgnsFlowWriter_c {
         cgnsFile_.close();
     }
 
+    proc writeWakeToCGNS(ref wakeXcoord : [] real(64), ref wakeYcoord : [] real(64), ref wakeZcoord : [] real(64), dom: domain(1), fieldMap: map(string, [dom] real(64))) {
+
+        const wallBaseName = "WakeBase";
+        const cellDim: c_int = 1;      // 1D elements (lines)
+        const physDim: c_int = 2;      // 2D space (x, y)
+        const wallBaseId = cgnsFile_.createBase(wallBaseName, cellDim, physDim);
+
+        const zoneName : string = "ZoneWake";
+        var size : [0..2] cgsize_t;
+        size[0] = wakeXcoord.size;
+        size[1] = wakeXcoord.size-1;
+        size[2] = 0;
+
+        zoneId = cgnsFile_.createZone(wallBaseId, zoneName, size, Structured);
+
+        cgnsFile_.writeGridCoordinates(wallBaseId, zoneId, wakeXcoord, wakeYcoord, wakeZcoord);
+
+        solIDcc = cgnsFile_.addNodeCenteredSolution(wallBaseId, zoneId, "WAKE_FLOW_SOLUTION_NC");
+
+        for name in fieldMap.keys() {
+            var values = try! fieldMap[name];
+            cgnsFile_.addFieldSolution(wallBaseId, zoneId, solIDcc, name, values);
+        }
+
+        writeln("CGNS wake file written to ", cgnsFileName_);
+    }
+
     proc writeLEandTEtoCGNS(const ref meshData_ : meshData, dom: domain(1), fieldMap: map(string, [dom] real(64))) {
         const wallBaseName = "LE_TE_Base";
         const cellDim: c_int = 1;      // 1D elements (lines)
@@ -265,11 +292,10 @@ class cgnsFlowWriter_c {
     proc writeConvergenceHistory(time: list(real(64)),
                                  iterations: list(int),
                                  res0: list(real(64)),
-                                 res1: list(real(64)),
                                  cls: list(real(64)),
                                  cds: list(real(64)),
                                  cms: list(real(64))) {
-        const nMetrics = 7;
+        const nMetrics = 6;
         const maxIter = iterations.size;
 
         var convData: [0..<nMetrics, 0..<maxIter] real(64);
@@ -279,13 +305,12 @@ class cgnsFlowWriter_c {
             iterationsArray[i] = iterations[i];
             convData[0, i] = time[i];
             convData[1, i] = res0[i];
-            convData[2, i] = res1[i];
-            convData[3, i] = cls[i];
-            convData[4, i] = cds[i];
-            convData[5, i] = cms[i];
+            convData[2, i] = cls[i];
+            convData[3, i] = cds[i];
+            convData[4, i] = cms[i];
         }
 
-        var names = ["Time", "Res0", "Res1", "Cl", "Cd", "Cm"];
+        var names = ["Time", "Res0", "Cl", "Cd", "Cm"];
 
         cgnsFile_.writeGlobalConvergenceHistory("ConvergenceHistory", iterationsArray, names, convData);
 

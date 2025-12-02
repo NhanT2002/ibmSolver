@@ -16,11 +16,20 @@ config const Y_LE : real(64);
 config const X_TE : real(64);
 config const Y_TE : real(64);
 
+config const N_KLS : int;
+
 config const MACH : real(64);
 config const ALPHA : real(64);
 config const GAMMA : real(64);
 config const K2 : real(64);
 config const K4 : real(64);
+
+config const ALPHA_0 : real(64);
+config const ALPHA_AMPLITUDE : real(64);
+config const ALPHA_FREQUENCY : real(64);
+config const ALPHA_PHASE : real(64);
+config const TIME_STEP : real(64);
+config const TIME_FINAL : real(64);
 
 config const CFL : real(64);
 config const CFL_RAMP_FACTOR : real(64);
@@ -56,6 +65,8 @@ record inputsConfig {
     var X_TE_ : real(64) = X_TE;
     var Y_TE_ : real(64) = Y_TE;
 
+    var N_KLS_ : int = N_KLS; // Number of cells in k-exact least squares stencil
+
     var MACH_ : real(64) = MACH;
     var MACH_2_ : real(64) = MACH * MACH;
     var ALPHA_ : real(64) = ALPHA;
@@ -63,8 +74,14 @@ record inputsConfig {
     var K2_ : real(64) = K2;
     var K4_ : real(64) = K4;
 
+    var ALPHA_0_: real(64) = ALPHA_0;
+    var ALPHA_AMPLITUDE_: real(64) = ALPHA_AMPLITUDE;
+    var ALPHA_FREQUENCY_: real(64) = ALPHA_FREQUENCY;
+    var ALPHA_PHASE_: real(64) = ALPHA_PHASE;
+    var TIME_STEP_ : real(64) = TIME_STEP;
+    var TIME_FINAL_ : real(64) = TIME_FINAL;
+
     var CFL_ : real(64) = CFL;
-    var CFL_2_ : real(64) = CFL * CFL;
     var CFL_RAMP_FACTOR_ : real(64) = CFL_RAMP_FACTOR;
     var CFL_RAMP_IT_ : int = CFL_RAMP_IT;
     var CFL_RAMP_FINAL_ : real(64) = CFL_RAMP_FINAL;
@@ -108,6 +125,11 @@ record inputsConfig {
         writeln("ALPHA = ", ALPHA);
         writeln("GAMMA = ", GAMMA);
 
+        writeln("ALPHA_0 = ", ALPHA_0);
+        writeln("ALPHA_AMPLITUDE = ", ALPHA_AMPLITUDE);
+        writeln("ALPHA_FREQUENCY = ", ALPHA_FREQUENCY);
+        writeln("ALPHA_PHASE = ", ALPHA_PHASE);
+
         writeln("K2 = ", K2);
         writeln("K4 = ", K4);
 
@@ -141,7 +163,7 @@ proc ref inputsConfig.initializeFlowField() {
         this.S_REF_ = 1.0; // Reference area
         this.C_REF_ = 1.0; // Reference chord
     }
-    else {
+    else if this.FLOW_ == "fullPotential" {
         this.RHO_INF_ = 1.0;
         this.C_INF_ = 1.0;
         this.P_INF_ = this.RHO_INF_ * this.C_INF_**2 / this.GAMMA_;
@@ -150,5 +172,15 @@ proc ref inputsConfig.initializeFlowField() {
         this.Q_INF_ = 0.5 * this.RHO_INF_ * (this.U_INF_**2 + this.V_INF_**2);
         this.S_REF_ = 1.0; // Reference area
         this.C_REF_ = 1.0; // Reference chord
+    }
+    else {
+        this.RHO_INF_ = 1.0;
+        this.C_INF_ = 1.0 / this.MACH_;
+        this.P_INF_ = this.RHO_INF_**this.GAMMA_ / (this.GAMMA_ * this.MACH_**2);
+        this.U_INF_ = this.MACH_ * this.C_INF_* cos(this.ALPHA_ * (pi / 180.0));
+        this.V_INF_ = this.MACH_ * this.C_INF_* sin(this.ALPHA_ * (pi / 180.0));
+        this.Q_INF_ = 0.5 * this.RHO_INF_ * (this.U_INF_**2 + this.V_INF_**2);
+        this.S_REF_ = 1.0; // Reference area
+        this.C_REF_ = 1.0;
     }
 }

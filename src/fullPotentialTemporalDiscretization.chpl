@@ -16,6 +16,7 @@ class fullPotentialTemporalDiscretization {
     var spatialDisc_ : shared fullPotentialSpatialDiscretization;
     var inputs_ : inputsConfig;
     var it_ : int = 0;
+    var firstRes0 : real(64) = 0.0;
 
     var cells_dom_ : domain(1) = {1..0};
 
@@ -51,14 +52,22 @@ class fullPotentialTemporalDiscretization {
     var cdList = new list(real(64));
     var cmList = new list(real(64));
 
+    var wakeFaces_dom_ : domain(1) = {1..0};
+    var deltaGamma_ : [wakeFaces_dom_] real(64);
+    var wakeVelocities_ : [wakeFaces_dom_] real(64);
+    var wakeCirculation_ : [wakeFaces_dom_] real(64);
+    var oldCirculation_ = 0.0;
+
+    var t_ : real(64) = 0.0;
+
     proc init(spatialDisc : shared fullPotentialSpatialDiscretization, ref inputs : inputsConfig) {
         this.spatialDisc_ = spatialDisc;
         this.inputs_ = inputs;
 
         this.cells_dom_ = this.spatialDisc_.cell_dom_with_ghosts_;
 
-        const M = this.spatialDisc_.mesh_.nCell_*2;
-        const N = this.spatialDisc_.mesh_.nCell_*2;
+        const M = this.spatialDisc_.mesh_.nCell_;
+        const N = this.spatialDisc_.mesh_.nCell_;
         this.A_petsc = new owned PETSCmatrix_c(PETSC_COMM_SELF, "seqaij", M, M, N, N);
         this.x_petsc = new owned PETSCvector_c(PETSC_COMM_SELF, N, N, 0.0, "seq");
         this.b_petsc = new owned PETSCvector_c(PETSC_COMM_SELF, N, N, 0.0, "seq");
@@ -103,42 +112,43 @@ class fullPotentialTemporalDiscretization {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-
-                this.A_petsc.set(2*cellIndex, 2*cellIndex, 0.0);
-                this.A_petsc.set(2*cellIndex, 2*cellIndex+1, 0.0);
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex, 0.0);
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, 0.0);
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0) {
+                    // Diagonal set to 1
+                    this.A_petsc.set(cellIndex, cellIndex, 1.0);
+                    continue;
+                }
 
                 const leftCell = cellIndex - 1;
-                const leftCellFVM = cellIndexFVM - 1;
-                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 {
-                    this.A_petsc.set(2*cellIndex, 2*leftCell, 0.0);
-                    this.A_petsc.set(2*cellIndex, 2*leftCell+1, 0.0);
-                    this.A_petsc.set(2*cellIndex+1, 2*leftCell+1, 0.0);
-                }
-
                 const rightCell = cellIndex + 1;
-                const rightCellFVM = cellIndexFVM + 1;
-                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 {
-                    this.A_petsc.set(2*cellIndex, 2*rightCell, 0.0);
-                    this.A_petsc.set(2*cellIndex, 2*rightCell+1, 0.0);
-                    this.A_petsc.set(2*cellIndex+1, 2*rightCell+1, 0.0);
-                }
-
                 const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
+                const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
+
+                const leftCellFVM = cellIndexFVM - 1;
+                const rightCellFVM = cellIndexFVM + 1;
                 const bottomCellFVM = cellIndexFVM - this.spatialDisc_.niCellWithGhosts_;
-                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 {
-                    this.A_petsc.set(2*cellIndex, 2*bottomCell, 0.0);
-                    this.A_petsc.set(2*cellIndex, 2*bottomCell+1, 0.0);
-                    this.A_petsc.set(2*cellIndex+1, 2*bottomCell+1, 0.0);
+                const topCellFVM = cellIndexFVM + this.spatialDisc_.niCellWithGhosts_;
+
+                // diagonal term
+                this.A_petsc.set(cellIndex, cellIndex, 0.0);
+
+                // left neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] != 9 {
+                    this.A_petsc.set(cellIndex, leftCell, 0.0);
                 }
 
-                const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
-                const topCellFVM = cellIndexFVM + this.spatialDisc_.niCellWithGhosts_;
-                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 {
-                    this.A_petsc.set(2*cellIndex, 2*topCell, 0.0);
-                    this.A_petsc.set(2*cellIndex, 2*topCell+1, 0.0);
-                    this.A_petsc.set(2*cellIndex+1, 2*topCell+1, 0.0);
+                // right neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] != 9 {
+                    this.A_petsc.set(cellIndex, rightCell, 0.0);
+                }
+
+                // bottom neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] != 9 {
+                    this.A_petsc.set(cellIndex, bottomCell, 0.0);
+                }
+
+                // top neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] != 9 {
+                    this.A_petsc.set(cellIndex, topCell, 0.0);
                 }
             }
         }
@@ -155,125 +165,94 @@ class fullPotentialTemporalDiscretization {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
+                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0) {
                     // Diagonal set to 1
-                    this.A_petsc.set(2*cellIndex, 2*cellIndex, 1.0);
-                    this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, 1.0);
+                    this.A_petsc.set(cellIndex, cellIndex, 1.0);
                     continue;
                 }
+
+                const leftCell = cellIndex - 1;
+                const rightCell = cellIndex + 1;
+                const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
+                const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
 
                 const leftCellFVM = cellIndexFVM - 1;
                 const rightCellFVM = cellIndexFVM + 1;
                 const bottomCellFVM = cellIndexFVM - this.spatialDisc_.niCellWithGhosts_;
                 const topCellFVM = cellIndexFVM + this.spatialDisc_.niCellWithGhosts_;
 
-                const leftFace = i + j*this.spatialDisc_.mesh_.niNode_;
-                const rightFace = leftFace + 1;
-                const bottomFace = i + j*this.spatialDisc_.mesh_.niCell_;
-                const topFace = bottomFace + this.spatialDisc_.mesh_.niCell_;
+                const u = this.spatialDisc_.uu_[cellIndexFVM];
+                const v = this.spatialDisc_.vv_[cellIndexFVM];
+                const rho = this.spatialDisc_.rhorho_[cellIndexFVM];
+                const m_i = this.spatialDisc_.mi_[cellIndexFVM];
+                const n_i = this.spatialDisc_.ni_[cellIndexFVM];
+                const s_i = this.spatialDisc_.si_[cellIndexFVM];
+                const m_j = this.spatialDisc_.mj_[cellIndexFVM];
+                const n_j = this.spatialDisc_.nj_[cellIndexFVM];
+                const s_j = this.spatialDisc_.sj_[cellIndexFVM];
+                const beta = this.spatialDisc_.beta_[cellIndexFVM];
 
-                // writeln("Cell (", i, ", ", j, ") Index: ", cellIndex, " FVM Index: ", cellIndexFVM, 
-                // " Left : ", leftCellFVM, " Right : ", rightCellFVM, 
-                // " Bottom : ", bottomCellFVM, " Top : ", topCellFVM);
-                // writeln("leftFace: ", leftFace, " rightFace: ", rightFace, " bottomFace: ", bottomFace, " topFace: ", topFace);
-                
-                // Diagonal terms
-                this.A_petsc.set(2*cellIndex, 2*cellIndex, this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM]/dt);
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex+1, 1.0/dt);
+                const rho_left_face = 0.5*(this.spatialDisc_.rhorho_[leftCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+                const rho_right_face = 0.5*(this.spatialDisc_.rhorho_[rightCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+                const rho_bottom_face = 0.5*(this.spatialDisc_.rhorho_[bottomCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
+                const rho_top_face = 0.5*(this.spatialDisc_.rhorho_[topCellFVM] + this.spatialDisc_.rhorho_[cellIndexFVM]);
 
-                // dR0/drho_i terms
-                this.A_petsc.add(2*cellIndex, 2*cellIndex, -this.spatialDisc_.dF0Idrho_[leftFace] + this.spatialDisc_.dF0Idrho_[rightFace] - this.spatialDisc_.dF0Jdrho_[bottomFace] + this.spatialDisc_.dF0Jdrho_[topFace]);
+                const dx_left = this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.xCellsWithGhosts_[leftCellFVM];
+                const dx_right = this.spatialDisc_.xCellsWithGhosts_[rightCellFVM] - this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM];
+                const dy_bottom = this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.yCellsWithGhosts_[bottomCellFVM];
+                const dy_top = this.spatialDisc_.yCellsWithGhosts_[topCellFVM] - this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM];
 
-                // // dR0/drho_j terms
-                // if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 {
-                //     const leftCell = cellIndex - 1;
-                //     this.A_petsc.set(2*cellIndex, 2*leftCell, -this.spatialDisc_.dF0Idrho_[leftFace]);
-                // }
-                // if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 {
-                //     const rightCell = cellIndex + 1;
-                //     this.A_petsc.set(2*cellIndex, 2*rightCell, this.spatialDisc_.dF0Idrho_[rightFace]);
-                // }
-                // if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 {
-                //     const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
-                //     this.A_petsc.set(2*cellIndex, 2*bottomCell, -this.spatialDisc_.dF0Jdrho_[bottomFace]);
-                // }
-                // if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 {
-                //     const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
-                //     this.A_petsc.set(2*cellIndex, 2*topCell, this.spatialDisc_.dF0Jdrho_[topFace]);
-                // }
+                const avg_dx_cell = this.spatialDisc_.mesh_.avgFaceAreaJ_[cellIndex];
+                const avg_dy_cell = this.spatialDisc_.mesh_.avgFaceAreaI_[cellIndex];
 
-                // dR0/dphi_i terms
-                const avg_rho_left = this.spatialDisc_.avg_rho_I_[leftFace];
-                const avg_rho_right = this.spatialDisc_.avg_rho_I_[rightFace];
-                const avg_rho_bottom = this.spatialDisc_.avg_rho_J_[bottomFace];
-                const avg_rho_top = this.spatialDisc_.avg_rho_J_[topFace];
+                // diagonal term
+                const Jij = 1.0 / dt**2 + (u*s_i + v*s_j) / dt - ((-rho_right_face/dx_right - rho_left_face/dx_left) / avg_dx_cell 
+                                                                    + (-rho_top_face/dy_top - rho_bottom_face/dy_bottom) / avg_dy_cell) / beta;
+                this.A_petsc.set(cellIndex, cellIndex, Jij);
 
-                const dF0dphi_left = avg_rho_left / (this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.xCellsWithGhosts_[leftCellFVM]) * this.spatialDisc_.mesh_.IfaceAreas_[leftFace];
-                const dF0dphi_right = - avg_rho_right / (this.spatialDisc_.xCellsWithGhosts_[rightCellFVM] - this.spatialDisc_.xCellsWithGhosts_[cellIndexFVM]) * this.spatialDisc_.mesh_.IfaceAreas_[rightFace];
-                const dF0dphi_bottom = avg_rho_bottom / (this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM] - this.spatialDisc_.yCellsWithGhosts_[bottomCellFVM]) * this.spatialDisc_.mesh_.JfaceAreas_[bottomFace];
-                const dF0dphi_top = - avg_rho_top / (this.spatialDisc_.yCellsWithGhosts_[topCellFVM] - this.spatialDisc_.yCellsWithGhosts_[cellIndexFVM]) * this.spatialDisc_.mesh_.JfaceAreas_[topFace];
-
-                this.A_petsc.add(2*cellIndex, 2*cellIndex+1, -dF0dphi_left + dF0dphi_right - dF0dphi_bottom + dF0dphi_top);
-
-                // dR1/drho_i terms
-                this.A_petsc.set(2*cellIndex+1, 2*cellIndex, this.spatialDisc_.rhorho_[cellIndexFVM]**(this.inputs_.GAMMA_-2.0) / this.inputs_.MACH_**2);
-
-                // dR1/dphi_i terms
-                this.A_petsc.add(2*cellIndex+1, 2*cellIndex+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.si_[cellIndexFVM] + this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.sj_[cellIndexFVM]));
-
-                
-                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] == 1 {
-                    const leftCell = cellIndex - 1;
-                    // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*leftCell+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.mi_[cellIndexFVM]));
-                    // dR0/dphi_j terms
-                    this.A_petsc.set(2*cellIndex, 2*leftCell+1, dF0dphi_left);
+                // left neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[leftCellFVM] != 9 {
+                    const Jim1j = (u*m_i) / dt - (rho_left_face/dx_left) / (beta * avg_dx_cell);
+                    this.A_petsc.set(cellIndex, leftCell, Jim1j);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] == 1 {
-                    const rightCell = cellIndex + 1;
-                    // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*rightCell+1, (this.spatialDisc_.uu_[cellIndexFVM] * this.spatialDisc_.ni_[cellIndexFVM]));
-                    // dR0/dphi_j terms
-                    this.A_petsc.set(2*cellIndex, 2*rightCell+1, -dF0dphi_right);
+
+                // right neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[rightCellFVM] != 9 {
+                    const Jip1j = (u*n_i) / dt - (rho_right_face/dx_right) / (beta * avg_dx_cell);
+                    this.A_petsc.set(cellIndex, rightCell, Jip1j);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] == 1 {
-                    const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;
-                    // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*bottomCell+1, (this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.mj_[cellIndexFVM]));
-                    // dR0/dphi_j terms
-                    this.A_petsc.set(2*cellIndex, 2*bottomCell+1, dF0dphi_bottom);
+
+                // bottom neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[bottomCellFVM] != 9 {
+                    const Jijm1 = (v*m_j) / dt - (rho_bottom_face/dy_bottom) / (beta * avg_dy_cell);
+                    this.A_petsc.set(cellIndex, bottomCell, Jijm1);
                 }
-                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] == 1 {
-                    const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
-                    // dR1/dphi_j terms
-                    this.A_petsc.set(2*cellIndex+1, 2*topCell+1, (this.spatialDisc_.vv_[cellIndexFVM] * this.spatialDisc_.nj_[cellIndexFVM]));
-                    // dR0/dphi_j terms
-                    this.A_petsc.set(2*cellIndex, 2*topCell+1, -dF0dphi_top);
+
+                // top neighbor
+                if this.spatialDisc_.cellTypesWithGhosts_[topCellFVM] != 9 {
+                    const Jijp1 = (v*n_j) / dt - (rho_top_face/dy_top) / (beta * avg_dy_cell);
+                    this.A_petsc.set(cellIndex, topCell, Jijp1);
                 }
             }
         }
         this.A_petsc.assemblyComplete();
+
+        
+        // forall cellIndex in 0..this.spatialDisc_.mesh_.nCell_-1 {
+        //     if cellIndex == 25189 || cellIndex == 24965 {
+        //         const leftCell = cellIndex - 1;
+        //         const rightCell = cellIndex + 1;
+        //         const bottomCell = cellIndex - this.spatialDisc_.mesh_.niCell_;;
+        //         const topCell = cellIndex + this.spatialDisc_.mesh_.niCell_;
+        //         writeln("cellIndex = ", cellIndex,
+        //         " A[", cellIndex, ", ", cellIndex, "] = ", this.A_petsc.get(cellIndex, cellIndex),
+        //         " A[", cellIndex, ", ", leftCell, "] = ", this.A_petsc.get(cellIndex, leftCell),
+        //         " A[", cellIndex, ", ", rightCell, "] = ", this.A_petsc.get(cellIndex, rightCell),
+        //         " A[", cellIndex, ", ", bottomCell, "] = ", this.A_petsc.get(cellIndex, bottomCell),
+        //         " A[", cellIndex, ", ", topCell, "] = ", this.A_petsc.get(cellIndex, topCell));
+        //     }
+        // }
         // this.A_petsc.matView();
-    }
-
-    proc compute_dt() {
-        this.dtCells_ = 1.0e20;
-        forall j in 0..<this.spatialDisc_.mesh_.njCell_ {
-            for i in 0..<this.spatialDisc_.mesh_.niCell_ {
-                const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-                if (this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1) {
-                    continue;
-                }
-                const lambdaI = this.spatialDisc_.LambdaI_[cellIndexFVM];
-                const lambdaJ = this.spatialDisc_.LambdaJ_[cellIndexFVM];
-                const volume = this.spatialDisc_.cellVolumesWithGhosts_[cellIndexFVM];
-                this.dtCells_[cellIndexFVM] = this.inputs_.CFL_ * volume / (lambdaI + lambdaJ);
-
-            }
-        }
-        // const min_dt = min reduce this.dtCells_;
-        // writeln("Min dt: ", min_dt);
-        // this.dtCells_ = min_dt;
     }
 
     proc eulerStep() {
@@ -285,8 +264,7 @@ class fullPotentialTemporalDiscretization {
                 const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
 
-                this.b_petsc.set(2*cellIndex, -this.spatialDisc_.Rc0_[cellIndexFVM]);
-                this.b_petsc.set(2*cellIndex+1, -this.spatialDisc_.Rc1_[cellIndexFVM]);
+                this.b_petsc.set(cellIndex, this.spatialDisc_.R0_[cellIndexFVM]);
             }
         }
         this.b_petsc.assemblyComplete();
@@ -297,157 +275,135 @@ class fullPotentialTemporalDiscretization {
             for i in 0..<this.spatialDisc_.mesh_.niCell_ {
                 const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
                 const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
-                this.spatialDisc_.rhorho_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex);
-                this.spatialDisc_.phiphi_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex+1);
 
-                // if cellIndex == 22015 {
-                //     writeln("  cellIndex = ", cellIndex,
-                //             " uu_ = ", this.spatialDisc_.uu_[cellIndexFVM],
-                //             " vv_ = ", this.spatialDisc_.vv_[cellIndexFVM],
-                //             " rho = ", this.spatialDisc_.rhorho_[cellIndexFVM],
-                //             " phi = ", this.spatialDisc_.phiphi_[cellIndexFVM],
-                //             " Rc0 = ", this.spatialDisc_.Rc0_[cellIndexFVM],
-                //             " Rc1 = ", this.spatialDisc_.Rc1_[cellIndexFVM],
-                //             " delta rho = ", this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex),
-                //             " delta phi = ", this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex+1));
-                //             writeln(" ");
+                if this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 1 && this.spatialDisc_.cellTypesWithGhosts_[cellIndexFVM] != 0 {
+                    continue;
+                }
+                
+                // update past time level variables
+                this.spatialDisc_.phiphi_m2_[cellIndexFVM] = this.spatialDisc_.phiphi_m1_[cellIndexFVM];
+                
+                this.spatialDisc_.rhorho_m1_[cellIndexFVM] = this.spatialDisc_.rhorho_[cellIndexFVM];
+                this.spatialDisc_.beta_m1_[cellIndexFVM] = this.spatialDisc_.beta_[cellIndexFVM];
+                this.spatialDisc_.phiphi_m1_[cellIndexFVM] = this.spatialDisc_.phiphi_[cellIndexFVM];
+                this.spatialDisc_.uu_m1_[cellIndexFVM] = this.spatialDisc_.uu_[cellIndexFVM];
+                this.spatialDisc_.vv_m1_[cellIndexFVM] = this.spatialDisc_.vv_[cellIndexFVM];
+
+                // update solution
+                this.spatialDisc_.phiphi_[cellIndexFVM] += this.inputs_.OMEGA_ * this.x_petsc.get(cellIndex);
+                this.spatialDisc_.phi_minus_phi_m1_[cellIndexFVM] = this.spatialDisc_.phiphi_[cellIndexFVM] - this.spatialDisc_.phiphi_m1_[cellIndexFVM];
+
+                // if cellIndex == 27756 {
+                //     writeln("Updating cell ", cellIndex, ": phi = ", this.spatialDisc_.phiphi_[cellIndexFVM],
+                //     " uu = ", this.spatialDisc_.uu_[cellIndexFVM],
+                //     " vv = ", this.spatialDisc_.vv_[cellIndexFVM],
+                //     " rho = ", this.spatialDisc_.rhorho_[cellIndexFVM],
+                //     " delta phi = ", this.x_petsc.get(cellIndex),
+                //     " residual = ", this.spatialDisc_.R0_[cellIndexFVM]);
                 // }
+
             }
         }
 
         return (its, reason);
     }
 
-    proc RKstep() {
-        this.rho_0_ = this.spatialDisc_.rhorho_;
-        this.phi_0_ = this.spatialDisc_.phiphi_;
+    proc updateWakeCirculation() {
+        this.spatialDisc_.computeCirculation();
+        this.spatialDisc_.wakeCirculation_[0] = this.spatialDisc_.circulation_;
 
-        // Stage 1
-        this.spatialDisc_.run();
-
-        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
-            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
-                continue;
-            }
-            this.spatialDisc_.rhorho_[cell] = this.rho_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc0_[cell];
-            this.spatialDisc_.phiphi_[cell] = this.phi_0_[cell] - a1 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc1_[cell];
+        forall i in this.wakeFaces_dom_ {
+            const topCellFVM = this.spatialDisc_.wakeFacesTopCell_[i];
+            const bottomCellFVM = this.spatialDisc_.wakeFacesBottomCell_[i];
+            const u_top = this.spatialDisc_.uu_[topCellFVM];
+            const u_bottom = this.spatialDisc_.uu_[bottomCellFVM];
+            this.wakeVelocities_[i] = 0.5 * (u_top + u_bottom);
         }
 
-        // Stage 2
-        this.spatialDisc_.run();
-        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
-            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
-                continue;
-            }
-            this.spatialDisc_.rhorho_[cell] = this.rho_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc0_[cell];
-            this.spatialDisc_.phiphi_[cell] = this.phi_0_[cell] - a2 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc1_[cell];
+        for i in {1..<this.wakeFaces_dom_.size} {
+            const face = this.spatialDisc_.wakeFaces_[i];
+            const u = this.wakeVelocities_[i];
+            const dx = this.spatialDisc_.mesh_.JfacesCx_[face] - this.spatialDisc_.mesh_.JfacesCx_[face-1];
+            const Gamma_i = this.spatialDisc_.wakeCirculation_[i];
+            const Gamma_im1 = this.spatialDisc_.wakeCirculation_[i-1];
+            this.spatialDisc_.wakeCirculation_[i] = (u / dx * (Gamma_im1) + Gamma_i / this.inputs_.CFL_) / (1.0 / this.inputs_.CFL_ + u / dx);
         }
+    }
 
-        // Stage 3 - update dissipation
-        this.spatialDisc_.run();
-        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
-            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
-                continue;
-            }
-            this.spatialDisc_.rhorho_[cell] = this.rho_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc0_[cell];
-            this.spatialDisc_.phiphi_[cell] = this.phi_0_[cell] - a3 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc1_[cell];
-        }
+    // proc updateUnsteadyWake() {
 
-        // Stage 4
-        this.spatialDisc_.run();
-        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
-            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
-                continue;
-            }
-            this.spatialDisc_.rhorho_[cell] = this.rho_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc0_[cell];
-            this.spatialDisc_.phiphi_[cell] = this.phi_0_[cell] - a4 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc1_[cell];
-        }
+    // }
 
-        // Stage 5 - update dissipation
-        this.spatialDisc_.run();
-        forall cell in 0..<this.spatialDisc_.nCellWithGhosts_ {
-            if (this.spatialDisc_.cellTypesWithGhosts_[cell] != 1) {
-                continue;
-            }
-            this.spatialDisc_.rhorho_[cell] = this.rho_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc0_[cell];
-            this.spatialDisc_.phiphi_[cell] = this.phi_0_[cell] - a5 * this.dtCells_[cell] / this.spatialDisc_.cellVolumesWithGhosts_[cell] * this.spatialDisc_.Rc1_[cell];
-        }
+    proc updateAngleOfAttack() {
+        this.inputs_.ALPHA_ = this.inputs_.ALPHA_0_ + this.inputs_.ALPHA_AMPLITUDE_ * sin(this.inputs_.ALPHA_FREQUENCY_ * this.t_ + this.inputs_.ALPHA_PHASE_);
+        this.inputs_.U_INF_ = this.inputs_.MACH_ * this.inputs_.C_INF_ * cos(this.inputs_.ALPHA_ * pi / 180.0);
+        this.inputs_.V_INF_ = this.inputs_.MACH_ * this.inputs_.C_INF_ * sin(this.inputs_.ALPHA_ * pi / 180.0);
+        writeln("Updated angle of attack to ", this.inputs_.ALPHA_, " degrees at time ", this.t_, " U_inf = ", this.inputs_.U_INF_, " V_inf = ", this.inputs_.V_INF_);
     }
 
     proc solve() {
         var time: stopwatch;
         var normalize_res0 = 1e12;
-        var normalize_res1 = 1e12;
-        var firstRes0 = 0.0;
-        var firstRes1 = 0.0;
 
+        this.spatialDisc_.initializeWakeFaces();
+        this.wakeFaces_dom_ = this.spatialDisc_.wakeFaces_dom_;
         this.initializeJacobian();
         
-        while (normalize_res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(normalize_res0) == false && isNan(normalize_res1) == false) {
+        while (normalize_res0 > this.inputs_.CONV_TOL_ && this.it_ < this.inputs_.IT_MAX_ && isNan(normalize_res0) == false) {
             this.it_ += 1;
             
             time.start();
-            const (its, reason) = this.eulerStep();
 
+            const (its, reason) = this.eulerStep();
+            if this.inputs_.ALPHA_ != 0.0 {
+                this.updateWakeCirculation();
+            }
             const (Cl, Cd, Cm) = this.spatialDisc_.compute_aerodynamics_coefficients();
 
             time.stop();
 
-            const res0 = l2Norm(this.spatialDisc_.Rc0_);
-            const res1 = l2Norm(this.spatialDisc_.Rc1_);
+            const res0 = l2Norm(this.spatialDisc_.R0_);
 
             if this.it_ == 1 {
-                firstRes0 = res0;
-                firstRes1 = res1;
+                this.firstRes0 = res0;
             }
 
-
-            normalize_res0 = res0 / firstRes0;
-            normalize_res1 = res1 / firstRes1;
-
-            // if this.it_ % this.inputs_.CFL_RAMP_IT_ == 0 {
-            //     this.inputs_.CFL_ = min(this.inputs_.CFL_ * this.inputs_.CFL_RAMP_FACTOR_, this.inputs_.CFL_RAMP_FINAL_);
-            //     writeln("Ramping CFL to ", this.inputs_.CFL_, " at iteration ", this.it_);
+            // if this.it_ >= this.inputs_.CFL_RAMP_IT_{
+            //     this.inputs_.CFL_ = min(this.inputs_.CFL_ * normalize_res0 / (res0 / firstRes0), this.inputs_.CFL_RAMP_FINAL_);
             // }
 
-            writeln("t: ", time.elapsed()," Iteration: ", this.it_, " Res: ", res0, ", ", res1, 
+            normalize_res0 = res0 / this.firstRes0;
+
+            writeln("t: ", time.elapsed()," Iteration: ", this.it_, " CFL: ", this.inputs_.CFL_, " Res: ", res0, 
             " Cl: ", Cl, " Cd: ", Cd, " Cm: ", Cm, " GMRES its: ", its, " Reason: ", reason, 
-            " Norm Res: ", normalize_res0, ", ", normalize_res1);
+            " Norm Res: ", normalize_res0, " Circ: ", this.spatialDisc_.circulation_);
 
             this.timeList.pushBack(time.elapsed());
             this.itList.pushBack(this.it_);
             this.res0List.pushBack(res0);
-            this.res1List.pushBack(res1);
             this.clList.pushBack(Cl);
             this.cdList.pushBack(Cd);
             this.cmList.pushBack(Cm);
 
             if this.it_ % this.inputs_.CGNS_OUTPUT_FREQ_ == 0 {
                 writeln("Writing CGNS output at iteration ", this.it_);
-                this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, clList, cdList, cmList);
+                this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, clList, cdList, cmList);
+            }
+
+            if its == 0 {
+                // this.A_petsc.matView();
+                break;
             }
         }
-        // writeln("jacobian = ");
-        // this.A_petsc.matView();
-        // writeln("final delta rho and delta phi ");
-        // for j in 0..<this.spatialDisc_.mesh_.njCell_ {
-        //     for i in 0..<this.spatialDisc_.mesh_.niCell_ {
-        //         const cellIndex = this.spatialDisc_.mesh_.iiCell(i, j);
-        //         const cellIndexFVM = this.spatialDisc_.meshIndex2FVMindex(i, j);
+        this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, clList, cdList, cmList);
+    }
 
-        //         writeln("  cellIndex = ", cellIndex,
-        //                 " uu_ = ", this.spatialDisc_.uu_[cellIndexFVM],
-        //                 " vv_ = ", this.spatialDisc_.vv_[cellIndexFVM],
-        //                 " rho = ", this.spatialDisc_.rhorho_[cellIndexFVM],
-        //                 " phi = ", this.spatialDisc_.phiphi_[cellIndexFVM],
-        //                 " Rc0 = ", this.spatialDisc_.Rc0_[cellIndexFVM],
-        //                 " Rc1 = ", this.spatialDisc_.Rc1_[cellIndexFVM],
-        //                 " delta rho = ", this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex),
-        //                 " delta phi = ", this.inputs_.OMEGA_ * this.x_petsc.get(2*cellIndex+1));
-
-        //     }
-        // }
-        this.spatialDisc_.writeSolution2CGNS(timeList, itList, res0List, res1List, clList, cdList, cmList);
+    proc solveUnsteady() {
+        while this.t_ < this.inputs_.TIME_FINAL_ {
+            this.updateAngleOfAttack();
+            this.solve();
+            this.t_ += this.inputs_.TIME_STEP_;
+        }
     }
 }
 
